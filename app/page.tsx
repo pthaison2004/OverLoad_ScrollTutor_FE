@@ -6,11 +6,20 @@ import CourseCard from "@/components/course/CourseCard";
 import { coursesApi } from "@/lib/api";
 import { Course } from "@/lib/types";
 import { ChevronRight, MessageCircle, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { isLoggedIn } from "@/lib/auth";
 
 export default function HomePage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.push("/login");
+    }
+  }, []);
 
   useEffect(() => {
     coursesApi.getAll({ pageSize: 50, isPublished: true })

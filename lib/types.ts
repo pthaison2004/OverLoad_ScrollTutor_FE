@@ -12,8 +12,16 @@ export interface LoginRequest {
 }
 
 export interface AuthResponse {
-  token: string;
-  expiresAt: string;
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: string;
+  user: User;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  fullName: string;
 }
 
 // ===== User =====

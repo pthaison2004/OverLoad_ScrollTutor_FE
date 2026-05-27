@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ArrowLeft, X, Loader2 } from "lucide-react";
 import { authApi } from "@/lib/api";
-import { setToken } from "@/lib/api";
+import { setToken, setRefreshToken, saveUser } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,7 +19,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login({ email: form.email, password: form.password });
-      setToken(res.token);
+      setToken(res.accessToken);
+      setRefreshToken(res.refreshToken);
+      saveUser(res.user);
       router.push("/");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Đăng nhập thất bại");
@@ -49,9 +51,9 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-7">
           <div className="w-16 h-16 bg-white rounded-2xl shadow-md flex items-center justify-center mb-3 border border-slate-100">
             <svg viewBox="0 0 40 40" width="36" height="36">
-              <path d="M20 4 L34 12 L34 28 L20 36 L6 28 L6 12 Z" fill="none" stroke="#2563EB" strokeWidth="3"/>
-              <path d="M14 16 Q20 10 26 16 Q20 22 14 16Z" fill="#2563EB"/>
-              <path d="M14 24 Q20 18 26 24 Q20 30 14 24Z" fill="#93c5fd"/>
+              <path d="M20 4 L34 12 L34 28 L20 36 L6 28 L6 12 Z" fill="none" stroke="#2563EB" strokeWidth="3" />
+              <path d="M14 16 Q20 10 26 16 Q20 22 14 16Z" fill="#2563EB" />
+              <path d="M14 24 Q20 18 26 24 Q20 30 14 24Z" fill="#93c5fd" />
             </svg>
           </div>
           <h1 className="text-xl font-bold text-slate-800">Đăng nhập vào OverLoad</h1>

@@ -2,6 +2,7 @@ import {
   ApiResponse, AuthResponse, LoginRequest, CreateUserRequest, User,
   Course, CoursesQuery, PaginatedCourses, Lesson, CreateLessonRequest,
   Enrollment, UpdateProgressRequest, LessonProgress, CreateProgressRequest,
+  RegisterRequest,
 } from "./types";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://localhost:53483") + "/api";
@@ -9,15 +10,15 @@ const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://localhost:53483") 
 // ─── Token helpers ───────────────────────────────────────────────────────────
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
+  return localStorage.getItem("ol_access_token");
 }
 
 export function setToken(token: string) {
-  localStorage.setItem("token", token);
+  localStorage.setItem("ol_access_token", token);
 }
 
 export function removeToken() {
-  localStorage.removeItem("token");
+  localStorage.removeItem("ol_access_token");
 }
 
 // ─── Core fetch ──────────────────────────────────────────────────────────────
@@ -68,8 +69,17 @@ export const authApi = {
   login: (body: LoginRequest) =>
     request<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(body) }),
 
-  register: (body: CreateUserRequest) =>
-    request<User>("/users", { method: "POST", body: JSON.stringify(body) }),
+  register: (body: RegisterRequest) =>
+    request<AuthResponse>("/auth/register", { method: "POST", body: JSON.stringify(body) }),
+
+  logout: () =>
+    request<void>("/auth/logout", { method: "POST" }),
+
+  refresh: (refreshToken: string) =>
+    request<AuthResponse>("/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken }),
+    }),
 };
 
 // ─── Courses ─────────────────────────────────────────────────────────────────
