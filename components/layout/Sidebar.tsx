@@ -1,19 +1,34 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Home, Layout, Server, Database, BookOpen, Download } from "lucide-react";
 
-const items = [
+const categoryItems = [
+  { value: "frontend", label: "Front-end", icon: Layout },
+  { value: "backend", label: "Back-end", icon: Server },
+  { value: "database", label: "Database", icon: Database },
+];
+
+const navItems = [
   { href: "/", label: "Trang chủ", icon: Home },
-  { href: "/frontend", label: "Front- end", icon: Layout },
-  { href: "/backend", label: "Back- end", icon: Server },
-  { href: "/database", label: "Database", icon: Database },
   { href: "/courses", label: "Khóa của tôi", icon: BookOpen },
   { href: "/downloads", label: "Nạp tiền", icon: Download },
 ];
 
-export default function Sidebar() {
+type SidebarProps = {
+  activeCategory?: string;
+  onCategoryChange?: (category: string) => void;
+  onHomeClick?: () => void;
+};
+
+export default function Sidebar({ activeCategory, onCategoryChange, onHomeClick }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleHomeClick = () => {
+    onHomeClick?.();
+    router.push("/");
+  };
 
   return (
     <aside className="sidebar">
@@ -28,18 +43,46 @@ export default function Sidebar() {
         </div>
       </div>
 
+      <div className="space-y-2 mb-4">
+        {categoryItems.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onCategoryChange?.(item.value)}
+            className={`sidebar-item w-full justify-start ${
+              activeCategory === item.value ? "active" : ""
+            }`}
+          >
+            <item.icon size={20} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="w-8 h-px bg-slate-100 mb-2" />
 
-      {items.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          className={`sidebar-item ${pathname === href ? "active" : ""}`}
-        >
-          <Icon size={20} />
-          <span>{label}</span>
-        </Link>
-      ))}
+      {navItems.map(({ href, label, icon: Icon }) =>
+        href === "/" ? (
+          <button
+            key={href}
+            type="button"
+            onClick={handleHomeClick}
+            className={`sidebar-item w-full justify-start ${pathname === href ? "active" : ""}`}
+          >
+            <Icon size={20} />
+            <span>{label}</span>
+          </button>
+        ) : (
+          <Link
+            key={href}
+            href={href}
+            className={`sidebar-item ${pathname === href ? "active" : ""}`}
+          >
+            <Icon size={20} />
+            <span>{label}</span>
+          </Link>
+        )
+      )}
     </aside>
   );
 }

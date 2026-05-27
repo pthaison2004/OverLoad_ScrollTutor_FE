@@ -9,10 +9,17 @@ import { ChevronRight, MessageCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
 
+const categoryTitles: Record<string, string> = {
+  frontend: "Front-end",
+  backend: "Back-end",
+  database: "Database",
+};
+
 export default function HomePage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -22,18 +29,29 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    coursesApi.getAll({ pageSize: 50, isPublished: true })
+    setLoading(true);
+    setError("");
+
+    const request = selectedCategory
+      ? coursesApi.getByCategory(selectedCategory, { pageSize: 50, isPublished: true })
+      : coursesApi.getAll({ pageSize: 50, isPublished: true });
+
+    request
       .then((res) => setCourses(res.items ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedCategory]);
 
   const beginnerCourses = courses.filter((c) => c.level === "Beginner");
   const advancedCourses = courses.filter((c) => c.level !== "Beginner");
 
   return (
     <div className="flex min-h-screen bg-[#eef2fb]">
-      <Sidebar />
+      <Sidebar
+        activeCategory={selectedCategory ?? undefined}
+        onCategoryChange={(category) => setSelectedCategory(category)}
+        onHomeClick={() => setSelectedCategory(null)}
+      />
       <div className="flex-1 ml-[72px]">
         <Navbar />
         <main className="pt-14 px-6 pb-10">
@@ -58,6 +76,12 @@ export default function HomePage() {
                 <ChevronRight size={16} className="text-white" />
               </button>
             </div>
+          </section>
+
+          <section className="mb-6">
+            <h1 className="text-2xl font-bold text-slate-800">
+              {selectedCategory ? `Khóa học ${categoryTitles[selectedCategory]}` : "Khóa học nổi bật"}
+            </h1>
           </section>
 
           {/* Loading */}

@@ -1,7 +1,7 @@
 import {
   ApiResponse, AuthResponse, LoginRequest, CreateUserRequest, User,
   Course, CoursesQuery, PaginatedCourses, Lesson, CreateLessonRequest,
-  Enrollment, UpdateProgressRequest, LessonProgress, CreateProgressRequest,
+  Enrollment, EnrollmentDetail, UpdateProgressRequest, LessonProgress, CreateProgressRequest,
   RegisterRequest,
 } from "./types";
 
@@ -93,6 +93,11 @@ export const coursesApi = {
   getBySlug: (slug: string) =>
     request<Course>(`/courses/slug/${slug}`),
 
+  getByCategory: (category: string, query: CoursesQuery = {}) =>
+    request<PaginatedCourses>(
+      `/courses/category/${encodeURIComponent(category)}${buildQuery(query as Record<string, unknown>)}`
+    ),
+
   getLessons: (courseId: number) =>
     request<Lesson[]>(`/courses/${courseId}/lessons`),
 };
@@ -134,6 +139,9 @@ export const enrollmentsApi = {
 
   getByUser: (userId: number) =>
     request<Enrollment[]>(`/enrollments/user/${userId}`),
+
+  getByUserDetails: (userId: number) =>
+    request<EnrollmentDetail[]>(`/Enrollments/user/${userId}`),
 
   getByCourse: (courseId: number) =>
     request<Enrollment[]>(`/enrollments/course/${courseId}`),

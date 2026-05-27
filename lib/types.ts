@@ -53,6 +53,10 @@ export interface Course {
   level: "Beginner" | "Intermediate" | "Advanced";
   isPublished: boolean;
   slug?: string;
+  totalDurationMinutes?: number;
+  totalLessons?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CoursesQuery {
@@ -104,6 +108,20 @@ export interface Enrollment {
   courseId: number;
   progressPercentage?: number;
   completedAt?: string;
+  lastAccessedAt?: string;
+}
+
+export interface EnrollmentDetail {
+  id: number;
+  userId: number;
+  userFullName: string;
+  userEmail: string;
+  courseId: number;
+  courseTitle: string;
+  courseSlug: string;
+  enrolledAt: string;
+  completedAt?: string | null;
+  progressPercentage?: number;
   lastAccessedAt?: string;
 }
 

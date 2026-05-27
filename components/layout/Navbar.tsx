@@ -1,19 +1,21 @@
 "use client";
 import { Search, Zap } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";   
-import { getUser } from "@/lib/auth";           
-import { User } from "@/lib/types";             
+import { useEffect, useState } from "react";
+import { getUser } from "@/lib/auth";
+import { User } from "@/lib/types";
+
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
- 
+
   useEffect(() => {
-    // Đọc user từ localStorage sau khi trang load xong
     setUser(getUser());
   }, []);
-   const initials = user?.fullName
+
+  const initials = user?.fullName
     ? user.fullName.split(" ").pop()?.charAt(0).toUpperCase() ?? "?"
     : "?";
+
   return (
     <header className="fixed top-0 left-[72px] right-0 h-14 bg-white border-b border-slate-100 z-30 flex items-center px-5 gap-4">
       {/* Search */}
@@ -26,17 +28,16 @@ export default function Navbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        {/* Upgrade btn */}
         <button className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-xl text-sm font-600 hover:bg-orange-600 transition-colors">
           <Zap size={14} fill="white" />
           Nâng cấp
         </button>
 
-        {/* User */}
         <div className="flex items-center gap-2">
           <div className="text-right">
             <div className="text-sm font-600 text-slate-700 leading-tight">
-              {user?.fullName ?? "Khách"}</div>
+              {user?.fullName ?? "Khách"}
+            </div>
             <div className="flex gap-1 justify-end mt-0.5">
               <span className="text-xs bg-slate-100 text-slate-500 px-1.5 rounded font-500">Free</span>
               <span className="text-xs bg-blue-50 text-primary px-1.5 rounded font-500">Học viên</span>
