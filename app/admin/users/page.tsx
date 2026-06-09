@@ -33,7 +33,7 @@ export default function AdminUsers() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
-      .then((res) => setUsers(res.data?.items ?? []))
+      .then((res) => setUsers(res.data ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
   };

@@ -117,7 +117,7 @@ export default function ManagerCourses() {
       headers: { Authorization: `Bearer ${token()}` },
     })
       .then((r) => r.json())
-      .then((res) => setCourses(res.data?.items ?? []))
+      .then((res) => setCourses(res.data ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
   };
