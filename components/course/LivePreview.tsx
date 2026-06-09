@@ -71,7 +71,7 @@ export default function LivePreview({ code, language, runKey }: Props) {
     const html = buildHtml(code, language);
     const iframe = iframeRef.current;
     iframe.srcdoc = html;
-  }, [runKey]);
+  }, [runKey, code, language]);
 
   return (
     <iframe

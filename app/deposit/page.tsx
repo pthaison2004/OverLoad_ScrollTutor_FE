@@ -61,6 +61,20 @@ export default function DepositPage() {
 
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
+      
+      const amountParam = params.get("amount");
+      if (amountParam) {
+        const amt = Number(amountParam);
+        if (!isNaN(amt) && amt >= 10000) {
+          setAmount(amt);
+          if (quickAmounts.includes(amt)) {
+            setCustomAmount("");
+          } else {
+            setCustomAmount(amt.toString());
+          }
+        }
+      }
+
       const payStatus = params.get("payment");
       if (payStatus === "success" || payStatus === "cancel") {
         setPaymentResult(payStatus);

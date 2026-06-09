@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { coursesApi, paymentApi } from "@/lib/api";
 import { Course, RevenueStats } from "@/lib/types";
 import { 
@@ -157,12 +158,20 @@ export default function InstructorDashboard() {
           </p>
         </div>
         
-        <button
-          onClick={() => openCourseModal()}
-          className="flex items-center gap-1 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_16px_rgba(37,99,235,0.2)]"
-        >
-          <Plus size={14} /> Thêm khóa học
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/instructor/student-verifications"
+            className="flex items-center gap-1 px-3.5 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-all"
+          >
+            Duyệt sinh viên
+          </Link>
+          <button
+            onClick={() => openCourseModal()}
+            className="flex items-center gap-1 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_16px_rgba(37,99,235,0.2)]"
+          >
+            <Plus size={14} /> Thêm khóa học
+          </button>
+        </div>
       </div>
 
       {/* Messages */}

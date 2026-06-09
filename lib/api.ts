@@ -29,10 +29,13 @@ async function request<T>(
 ): Promise<T> {
   const token = getToken();
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
+
+  if (!(options.body instanceof FormData)) {
+    (headers as Record<string, string>)["Content-Type"] = "application/json";
+  }
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
@@ -137,6 +140,29 @@ export const usersApi = {
 
   update: (id: number, body: Partial<User>) =>
     request<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  uploadStudentCard: (formData: FormData) =>
+    request<{ success: boolean; message: string; studentVerificationStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED"; studentCardPath: string }>("/users/me/student-verification", {
+      method: "POST",
+      body: formData,
+    }),
+
+  dismissRejection: () =>
+    request<{ success: boolean; message: string }>("/users/me/dismiss-rejection", {
+      method: "POST",
+    }),
+
+  getPendingStudentVerifications: () =>
+    request<Array<{ id: number; fullName: string; email: string; avatarUrl?: string; studentCardPath: string; updatedAt: string }>>("/users/student-verifications/pending"),
+
+  getApprovedStudentVerifications: () =>
+    request<Array<{ id: number; fullName: string; email: string; avatarUrl?: string; studentCardPath: string; updatedAt: string }>>("/users/student-verifications/approved"),
+
+  verifyStudent: (userId: number, action: "approve" | "reject") =>
+    request<{ success: boolean; message: string; studentVerificationStatus: "APPROVED" | "REJECTED" }>("/users/student-verification/verify", {
+      method: "POST",
+      body: JSON.stringify({ userId, action }),
+    }),
 };
 
 // ─── Enrollments ─────────────────────────────────────────────────────────────

@@ -53,6 +53,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!authed) return;
     setLoading(true);
     setError("");
 
@@ -64,7 +65,19 @@ export default function HomePage() {
       .then((res) => setCourses(res.items ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [selectedCategory]);
+  }, [selectedCategory, authed]);
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen bg-[#eef2fb] items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (!authed) {
+    return <LandingPage />;
+  }
 
   const beginnerCourses = courses.filter((c) => c.level === "Beginner");
   const advancedCourses = courses.filter((c) => c.level !== "Beginner");

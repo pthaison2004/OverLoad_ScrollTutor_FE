@@ -32,6 +32,9 @@ export interface User {
   avatarUrl?: string;
   bio?: string;
   role: "Student" | "Instructor" | "Admin";
+  studentVerificationStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  studentCardPath?: string;
+  hasSeenStudentRejection: boolean;
 }
 
 export interface CreateUserRequest {

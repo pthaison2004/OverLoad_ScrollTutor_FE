@@ -1,18 +1,40 @@
 "use client";
-import { Search, Zap } from "lucide-react";
+import { Search, Zap, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getUser } from "@/lib/auth";
+import { getUser, saveUser } from "@/lib/auth";
 import { User } from "@/lib/types";
 import PricingModal from "@/components/payment/PricingModal";
+import { usersApi } from "@/lib/api";
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
+  const [showRejectionAlert, setShowRejectionAlert] = useState(false);
 
   useEffect(() => {
-    setUser(getUser());
+    const u = getUser();
+    setUser(u);
+    if (u && u.studentVerificationStatus === "REJECTED" && !u.hasSeenStudentRejection) {
+      setShowRejectionAlert(true);
+    }
   }, []);
+
+  const handleDismissRejection = async () => {
+    try {
+      await usersApi.dismissRejection();
+      const u = getUser();
+      if (u) {
+        const updatedUser = { ...u, hasSeenStudentRejection: true };
+        saveUser(updatedUser);
+        setUser(updatedUser);
+      }
+      setShowRejectionAlert(false);
+    } catch (err) {
+      console.error("Lỗi khi tắt thông báo từ chối:", err);
+      setShowRejectionAlert(false);
+    }
+  };
 
   const initials = user?.fullName
     ? user.fullName.split(" ").pop()?.charAt(0).toUpperCase() ?? "?"
@@ -56,6 +78,26 @@ export default function Navbar() {
         </div>
       </div>
       {isPricingOpen && <PricingModal onClose={() => setIsPricingOpen(false)} />}
+
+      {showRejectionAlert && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-[fadeIn_0.15s_ease-out]">
+          <div className="bg-white text-slate-800 border border-slate-100 rounded-3xl w-full max-w-sm p-6 shadow-xl text-center select-none animate-[scaleIn_0.15s_ease-out]">
+            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-red-500 mx-auto mb-4">
+              <AlertCircle size={24} />
+            </div>
+            <h3 className="text-base font-extrabold text-slate-900 mb-2">Đơn xác minh bị từ chối</h3>
+            <p className="text-slate-500 text-xs leading-relaxed mb-6">
+              Đơn xác minh học sinh, sinh viên của bạn đã bị từ chối. Vui lòng kiểm tra và nộp lại ảnh thẻ hợp lệ trong trang cá nhân.
+            </p>
+            <button
+              onClick={handleDismissRejection}
+              className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-colors shadow-md shadow-red-100 active:scale-95"
+            >
+              Đồng ý
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

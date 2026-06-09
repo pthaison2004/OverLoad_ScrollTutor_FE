@@ -183,6 +183,7 @@ export default function LandingPage() {
           box-shadow: 0 4px 24px rgba(37,99,235,0.4);
           transition: transform 0.2s, box-shadow 0.2s;
           text-decoration: none;
+          white-space: nowrap;
         }
         .btn-primary:hover {
           transform: translateY(-2px);
@@ -198,6 +199,7 @@ export default function LandingPage() {
           color: #e2e8f0;
           transition: border-color 0.2s, background 0.2s;
           text-decoration: none;
+          white-space: nowrap;
         }
         .btn-outline:hover {
           border-color: rgba(255,255,255,0.5);

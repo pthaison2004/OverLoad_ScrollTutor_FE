@@ -26,6 +26,110 @@ export default function LessonContent({ lesson, course, activeTab, onTabChange }
   const [userCode, setUserCode] = useState(lesson.template ?? "");
   const [runKey, setRunKey] = useState(0);
   const [editorHeight, setEditorHeight] = useState(50); // percentage
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+
+  // Parse all <pre> blocks from content as steps
+  function getAllPreCodes(html: string): string[] {
+    const results: string[] = [];
+    const regex = /<pre[^>]*>([\s\S]*?)<\/pre>/gi;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      results.push(
+        match[1]
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, ' ')
+          .trim()
+      );
+    }
+    return results;
+  }
+
+  const allSteps = lesson.content ? getAllPreCodes(lesson.content) : [];
+  const totalSteps = allSteps.length;
+  const progressPercent = totalSteps > 0 ? Math.round(((activeStepIndex + 1) / totalSteps) * 100) : 0;
+
+  // Reset editor code & language whenever the lesson changes
+  useEffect(() => {
+    const lang = lesson.language || detectLanguage(lesson.template ?? lesson.content ?? "");
+    setSelectedLanguage(lang as "javascript" | "html" | "css");
+    setActiveStepIndex(0);
+
+    let code = lesson.template ?? "";
+    if (!code && allSteps.length > 0) {
+      code = allSteps[0];
+    }
+    setUserCode(code);
+    setRunKey(k => k + 1);
+  }, [lesson.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const leftScrollContainerRef = useRef<HTMLDivElement>(null);
+  const isAutoScrollingRef = useRef(false);
+
+  // Load step into editor
+  function loadStep(stepIndex: number, code: string, scroll = true) {
+    setActiveStepIndex(stepIndex);
+    setUserCode(code);
+    setRunKey(k => k + 1);
+
+    if (scroll) {
+      const el = document.getElementById(`step-card-${stepIndex}`);
+      if (el) {
+        isAutoScrollingRef.current = true;
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Reset the flag after smooth scroll completes
+        setTimeout(() => {
+          isAutoScrollingRef.current = false;
+        }, 800);
+      }
+    }
+  }
+
+  // Scroll spy: update active step as user scrolls down the content
+  useEffect(() => {
+    const container = leftScrollContainerRef.current;
+    if (!container || allSteps.length <= 1) return;
+
+    const observerOptions = {
+      root: container,
+      rootMargin: "-25% 0px -45% 0px", // Trigger when step is in the middle 30% viewport band
+      threshold: 0,
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      if (isAutoScrollingRef.current) return;
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const indexAttr = entry.target.getAttribute("data-step-index");
+          if (indexAttr !== null) {
+            const stepIdx = parseInt(indexAttr, 10);
+            const stepCode = allSteps[stepIdx];
+            if (stepCode !== undefined) {
+              setActiveStepIndex((prevIdx) => {
+                if (prevIdx !== stepIdx) {
+                  setUserCode(stepCode);
+                  setRunKey((k) => k + 1);
+                  return stepIdx;
+                }
+                return prevIdx;
+              });
+            }
+          }
+        }
+      });
+    }, observerOptions);
+
+    const stepElements = container.querySelectorAll(".step-block-wrapper");
+    stepElements.forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [lesson.id, allSteps]);
+
   const dividerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const verticalDividerRef = useRef<HTMLDivElement>(null);
@@ -180,6 +284,9 @@ export default function LessonContent({ lesson, course, activeTab, onTabChange }
     { id: "author" as const, label: "Ghi chú", icon: User },
   ];
 
+  // Track <pre> index during html-react-parser replace
+  let preCounter = 0;
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Tabs */}
@@ -201,26 +308,68 @@ export default function LessonContent({ lesson, course, activeTab, onTabChange }
       {/* Tab: Mô tả */}
       {activeTab === "desc" && (
         <div ref={containerRef} className="flex-1 overflow-hidden flex flex-row">
-          {/* Left: Content */}
-          <div style={{ width: `${leftWidth}%` }} className="overflow-y-auto border-r border-slate-100 p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-3">{lesson.title}</h2>
-
-            {/* Stats */}
-            <div className="flex items-center gap-4 text-sm text-slate-500 mb-4">
-              <span className="flex items-center gap-1.5">
-                <Clock size={14} /> {lesson.durationMinutes} phút
-              </span>
-              {lesson.isFree && (
-                <span className="text-green-600 font-medium text-xs bg-green-50 px-2 py-0.5 rounded-full">
-                  Miễn phí
-                </span>
-              )}
-            </div>
-
-            {/* Description */}
-            {lesson.description && (
-              <p className="text-sm text-slate-600 leading-relaxed mb-5">{lesson.description}</p>
+          {/* Left: Content Wrapper */}
+          <div style={{ width: `${leftWidth}%` }} className="border-r border-slate-100 flex flex-row overflow-hidden h-full bg-white">
+            
+            {/* Left Child: Vertical Timeline */}
+            {totalSteps > 1 && (
+              <div className="w-10 shrink-0 flex flex-col items-center py-8 bg-slate-50/30 border-r border-slate-100/50 relative h-full">
+                {/* Background line */}
+                <div className="absolute top-8 bottom-8 w-[2px] bg-slate-100" />
+                {/* Active progress line fill */}
+                <div
+                  className="absolute top-8 w-[2px] bg-blue-500 transition-all duration-500 ease-out"
+                  style={{
+                    height: totalSteps > 1 ? `${(activeStepIndex / (totalSteps - 1)) * 100}%` : "0%",
+                    maxHeight: "calc(100% - 64px)"
+                  }}
+                />
+                {/* Step dots */}
+                <div className="absolute top-8 bottom-8 flex flex-col justify-between items-center w-full">
+                  {allSteps.map((_, i) => {
+                    const isActive = i === activeStepIndex;
+                    const isPassed = i < activeStepIndex;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => loadStep(i, allSteps[i])}
+                        className={`w-4 h-4 rounded-full z-10 flex items-center justify-center transition-all duration-300 ${
+                          isActive
+                            ? "bg-blue-600 border-[3px] border-blue-100 scale-125 shadow-md shadow-blue-200"
+                            : isPassed
+                            ? "bg-blue-500 border-2 border-transparent"
+                            : "bg-white border-2 border-slate-300 hover:border-slate-400"
+                        }`}
+                        title={`Bước ${i + 1}`}
+                      >
+                        {isActive && <div className="w-1 h-1 rounded-full bg-white" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
+
+            {/* Right Child: Scrollable Lesson Text Content */}
+            <div ref={leftScrollContainerRef} className="flex-1 overflow-y-auto p-6">
+              <h2 className="text-xl font-bold text-slate-800 mb-3">{lesson.title}</h2>
+
+              {/* Stats */}
+              <div className="flex items-center gap-4 text-sm text-slate-500 mb-4">
+                <span className="flex items-center gap-1.5">
+                  <Clock size={14} /> {lesson.durationMinutes} phút
+                </span>
+                {lesson.isFree && (
+                  <span className="text-green-600 font-medium text-xs bg-green-50 px-2 py-0.5 rounded-full">
+                    Miễn phí
+                  </span>
+                )}
+              </div>
+
+              {/* Description */}
+              {lesson.description && (
+                <p className="text-sm text-slate-600 leading-relaxed mb-5">{lesson.description}</p>
+              )}
 
             {/* Course stats */}
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -240,12 +389,14 @@ export default function LessonContent({ lesson, course, activeTab, onTabChange }
               </div>
             </div>
 
-            {/* Lesson content - displayed as formatted HTML/text */}
+            {/* Lesson content - displayed as formatted HTML/text with step tracking */}
             {lesson.content && (
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-slate-700 mb-3">Nội dung bài học</h3>
                 <div className="prose prose-sm max-w-none text-slate-600 leading-relaxed">
                   <style>{`
+                    .lesson-content { font-family: 'Be Vietnam Pro', sans-serif !important; }
+                    .lesson-content div, .lesson-content p, .lesson-content span, .lesson-content h1, .lesson-content h2, .lesson-content h3, .lesson-content h4, .lesson-content h5, .lesson-content h6, .lesson-content li, .lesson-content ul, .lesson-content ol, .lesson-content strong, .lesson-content b, .lesson-content em, .lesson-content i { font-family: 'Be Vietnam Pro', sans-serif !important; }
                     .lesson-content h1 { font-size: 1.875rem; font-weight: 700; margin: 1.5rem 0 1rem; color: #1e293b; }
                     .lesson-content h2 { font-size: 1.5rem; font-weight: 700; margin: 1.25rem 0 0.75rem; color: #334155; }
                     .lesson-content h3 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #475569; }
@@ -267,32 +418,57 @@ export default function LessonContent({ lesson, course, activeTab, onTabChange }
                     .lesson-content em, .lesson-content i { font-style: italic; }
                   `}</style>
                   <div className="lesson-content">
+                    {(() => { preCounter = 0; return null; })()}
                     {parse(lesson.content, {
   replace(node) {
     if (node instanceof Element && node.name === "pre") {
+      const stepIdx = preCounter++;
       const code = node.children
         .map((c: any) => c.type === "text" ? c.data : c.children?.map((cc: any) => cc.data ?? "").join("") ?? "")
         .join("");
+      const isActive = stepIdx === activeStepIndex;
+      const stepCode = allSteps[stepIdx] ?? code.trim();
       return (
-        <pre
-          onClick={() => {
-            setUserCode(code.trimEnd());
-            setRunKey(k => k + 1);  // tự chạy luôn sau khi copy
-          }}
-          title="Bấm để copy vào editor"
-          style={{
-            background: "#1e293b", color: "#e2e8f0", padding: "1rem",
-            borderRadius: "0.5rem", cursor: "pointer", position: "relative",
-            border: "2px solid transparent", transition: "border-color 0.2s",
-          }}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = "#3b82f6")}
-          onMouseLeave={e => (e.currentTarget.style.borderColor = "transparent")}
+        <div
+          className="step-block-wrapper"
+          data-step-index={stepIdx}
+          id={`step-card-${stepIdx}`}
+          style={{ position: "relative", margin: "1rem 0" }}
         >
-          <span style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: "#64748b" }}>
-            ▶ Bấm để chạy
-          </span>
-          {domToReact(node.children as any)}
-        </pre>
+          {/* Step badge */}
+          <div style={{
+            position: "absolute", top: -10, left: 12, zIndex: 2,
+            background: isActive ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "#64748b",
+            color: "#fff", fontSize: 10, fontWeight: 700,
+            padding: "2px 10px", borderRadius: 10,
+            boxShadow: isActive ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+            transition: "all 0.3s ease",
+          }}>
+            Step {stepIdx + 1}
+          </div>
+          <pre
+            onClick={() => loadStep(stepIdx, stepCode)}
+            title={`Bấm để chạy Step ${stepIdx + 1}`}
+            style={{
+              background: "#1e293b", color: "#e2e8f0", padding: "1.25rem 1rem 1rem",
+              borderRadius: "0.5rem", cursor: "pointer", position: "relative",
+              border: isActive ? "2px solid #3b82f6" : "2px solid transparent",
+              boxShadow: isActive ? "0 0 0 3px rgba(59,130,246,0.15)" : "none",
+              transition: "all 0.3s ease",
+            }}
+            onMouseEnter={e => {
+              if (!isActive) e.currentTarget.style.borderColor = "#475569";
+            }}
+            onMouseLeave={e => {
+              if (!isActive) e.currentTarget.style.borderColor = "transparent";
+            }}
+          >
+            <span style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: isActive ? "#60a5fa" : "#64748b" }}>
+              {isActive ? "✓ Đang chạy" : "▶ Bấm để chạy"}
+            </span>
+            {domToReact(node.children as any)}
+          </pre>
+        </div>
       );
     }
   },
@@ -301,6 +477,7 @@ export default function LessonContent({ lesson, course, activeTab, onTabChange }
                 </div>
               </div>
             )}
+          </div>
           </div>
 
           {/* Vertical divider: draggable to resize left/right */}
@@ -315,10 +492,17 @@ export default function LessonContent({ lesson, course, activeTab, onTabChange }
             {/* Top: Code Editor */}
             <div style={{ height: `${editorHeight}%` }} className="overflow-hidden flex flex-col border-b border-slate-100">
               <div className="flex items-center justify-between px-4 py-2 shrink-0 bg-white border-b border-slate-100">
-                <span className="text-sm font-semibold text-slate-700">Soạn thảo code</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-700">Soạn thảo code</span>
+                  {totalSteps > 1 && (
+                    <span className="text-xs bg-blue-100 text-blue-600 font-semibold px-2 py-0.5 rounded-full">
+                      Step {activeStepIndex + 1}/{totalSteps}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setUserCode(lesson.template ?? ""); setRunKey(k => k + 1); }}
+                    onClick={() => loadStep(0, allSteps[0] ?? "")}
                     className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
                   >
                     <RotateCcw size={12} /> Reset
@@ -406,3 +590,4 @@ export default function LessonContent({ lesson, course, activeTab, onTabChange }
     </div>
   );
 }
+
