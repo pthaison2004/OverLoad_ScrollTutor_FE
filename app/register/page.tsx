@@ -32,7 +32,7 @@ export default function RegisterPage() {
       setToken(res.accessToken);
       setRefreshToken(res.refreshToken);
       saveUser(res.user);
-      router.push("/");
+      router.push("/home");
       router.push("/login");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Đăng ký thất bại");

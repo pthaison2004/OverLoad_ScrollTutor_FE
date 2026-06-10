@@ -1,32 +1,29 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import Sidebar from "@/components/layout/Sidebar";
-import Navbar from "@/components/layout/Navbar";
-import CourseCard from "@/components/course/CourseCard";
-import { coursesApi, enrollmentsApi } from "@/lib/api";
-import { Course, EnrollmentDetail } from "@/lib/types";
-import { getUser, isLoggedIn } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import CourseCard from "@/components/course/CourseCard";
+import Navbar from "@/components/layout/Navbar";
+import Sidebar from "@/components/layout/Sidebar";
 import PaymentResultModal from "@/components/payment/PaymentResultModal";
+import { coursesApi, enrollmentsApi, usersApi } from "@/lib/api";
+import { getUser, isLoggedIn } from "@/lib/auth";
+import { UserCourse } from "@/lib/types";
 
 export default function MyCoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [enrollments, setEnrollments] = useState<EnrollmentDetail[]>([]);
+  const [userCourses, setUserCourses] = useState<UserCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paymentResult, setPaymentResult] = useState<"success" | "cancel" | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const payStatus = params.get("payment");
-      if (payStatus === "success" || payStatus === "cancel") {
-        setPaymentResult(payStatus);
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, "", newUrl);
-      }
+    const params = new URLSearchParams(window.location.search);
+    const payStatus = params.get("payment");
+    if (payStatus === "success" || payStatus === "cancel") {
+      setPaymentResult(payStatus);
+      window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
 
@@ -41,35 +38,48 @@ export default function MyCoursesPage() {
       router.push("/login");
       return;
     }
+    const userId = user.id;
 
     setLoading(true);
     setError("");
 
-    enrollmentsApi
-      .getByUserDetails(user.id)
-      .then(async (data) => {
-        setEnrollments(data);
+    async function loadCourses() {
+      try {
+        const data = await usersApi.getMyCoursesWithProgress();
+        setUserCourses(data.filter((course) => course.category !== "System"));
+      } catch {
+        const enrollments = await enrollmentsApi.getByUserDetails(userId);
+        const courses = await Promise.all(enrollments.map((item) => coursesApi.getById(item.courseId)));
+        const courseMap = new Map(courses.map((course) => [course.id, course]));
 
-        if (data.length === 0) {
-          setCourses([]);
-          return;
+        const fallbackCourses: UserCourse[] = [];
+        for (const enrollment of enrollments) {
+          const course = courseMap.get(enrollment.courseId);
+          if (!course || course.category === "System") continue;
+
+          fallbackCourses.push({
+            courseId: course.id,
+            title: course.title,
+            thumbnailUrl: course.thumbnailUrl,
+            category: course.category,
+            price: course.price,
+            level: course.level,
+            progressPercentage: enrollment.progressPercentage ?? 0,
+            completedLessons: 0,
+            totalLessons: course.totalLessons ?? 0,
+            lastAccessedAt: enrollment.lastAccessedAt,
+            isCompleted: Boolean(enrollment.completedAt),
+          });
         }
 
-        const coursePromises = data.map((item) => coursesApi.getById(item.courseId));
-        const courseResults = await Promise.all(coursePromises);
-        setCourses(courseResults);
-      })
-      .catch((err) => setError(err.message))
+        setUserCourses(fallbackCourses);
+      }
+    }
+
+    loadCourses()
+      .catch((err) => setError(err instanceof Error ? err.message : "Khong the tai khoa hoc"))
       .finally(() => setLoading(false));
   }, [router]);
-
-  const courseMap = new Map(courses.map((course) => [course.id, course]));
-  const items = enrollments
-    .map((enrollment) => ({
-      enrollment,
-      course: courseMap.get(enrollment.courseId),
-    }))
-    .filter((item): item is { enrollment: EnrollmentDetail; course: Course } => Boolean(item.course) && item.course?.category !== "System");
 
   return (
     <div className="flex min-h-screen bg-[#eef2fb]">
@@ -79,8 +89,8 @@ export default function MyCoursesPage() {
         <main className="pt-14 px-6 pb-10">
           <section className="mt-5 mb-7">
             <div className="flex flex-col gap-3">
-              <div className="text-sm text-slate-500">Danh sách khóa học đã đăng ký</div>
-              <h1 className="text-3xl font-bold text-slate-900">Khóa của tôi</h1>
+              <div className="text-sm text-slate-500">Danh sach khoa hoc da dang ky</div>
+              <h1 className="text-3xl font-bold text-slate-900">Khoa cua toi</h1>
             </div>
           </section>
 
@@ -91,29 +101,22 @@ export default function MyCoursesPage() {
           )}
 
           {error && !loading && (
-            <div className="py-8 text-center text-red-500 text-sm">
-              Không thể tải khóa học: {error}
-            </div>
+            <div className="py-8 text-center text-red-500 text-sm">Khong the tai khoa hoc: {error}</div>
           )}
 
-          {!loading && !error && items.length === 0 && (
-            <div className="py-16 text-center text-slate-500 text-sm">
-              Bạn chưa đăng ký khóa học nào.
-            </div>
+          {!loading && !error && userCourses.length === 0 && (
+            <div className="py-16 text-center text-slate-500 text-sm">Ban chua dang ky khoa hoc nao.</div>
           )}
 
-          {!loading && !error && items.length > 0 && (
+          {!loading && !error && userCourses.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {items.map(({ enrollment, course }) => (
-                <div key={enrollment.id} className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                  <CourseCard course={course} />
-                  <div className="p-4 bg-slate-50">
-                    <div className="text-sm text-slate-600 mb-1">Khóa: {course.title}</div>
-                    <div className="text-sm text-slate-600">Tiến độ: {enrollment.progressPercentage ?? 0}%</div>
-                    <div className="text-sm text-slate-600">Đăng ký: {new Date(enrollment.enrolledAt).toLocaleDateString()}</div>
-                    <div className="text-sm text-slate-600">
-                      {enrollment.completedAt ? `Hoàn thành: ${new Date(enrollment.completedAt).toLocaleDateString()}` : "Chưa hoàn thành"}
-                    </div>
+              {userCourses.map((course) => (
+                <div key={course.courseId} className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                  <CourseCard course={course} showProgress />
+                  <div className="px-4 pb-4 bg-white text-xs text-slate-500">
+                    {course.lastAccessedAt
+                      ? `Cap nhat: ${new Date(course.lastAccessedAt).toLocaleDateString("vi-VN")}`
+                      : "Chua co lan hoc gan nhat"}
                   </div>
                 </div>
               ))}
@@ -121,12 +124,7 @@ export default function MyCoursesPage() {
           )}
         </main>
       </div>
-      {paymentResult && (
-        <PaymentResultModal
-          status={paymentResult}
-          onClose={() => setPaymentResult(null)}
-        />
-      )}
+      {paymentResult && <PaymentResultModal status={paymentResult} onClose={() => setPaymentResult(null)} />}
     </div>
   );
 }
