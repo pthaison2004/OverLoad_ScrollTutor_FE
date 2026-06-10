@@ -786,38 +786,37 @@ export default function LessonContent({
                   })}
                 </div>
               )}
+              {/* Checkpoint Overlay */}
+              {isLocked && activeCheckpoint && (
+                <CheckpointOverlay
+                  question={activeCheckpoint.question}
+                  correctAnswer={activeCheckpoint.correctAnswer}
+                  onSolve={handleSolveCheckpoint}
+                />
+              )}
+
+              {!isCompleted && (
+                <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">
+                  <button
+                    onClick={handleMarkLessonComplete}
+                    disabled={isSavingProgress}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold rounded-lg transition-colors text-base"
+                  >
+                    {isSavingProgress ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Đang lưu...
+                      </>
+                    ) : (
+                      <>
+                        <Check size={18} />
+                        Đánh dấu hoàn thành bài học
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
-
-            {/* Checkpoint Overlay */}
-            {isLocked && activeCheckpoint && (
-              <CheckpointOverlay
-                question={activeCheckpoint.question}
-                correctAnswer={activeCheckpoint.correctAnswer}
-                onSolve={handleSolveCheckpoint}
-              />
-            )}
-
-            {!isCompleted && (
-              <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">
-                <button
-                  onClick={handleMarkLessonComplete}
-                  disabled={isSavingProgress}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold rounded-lg transition-colors text-base"
-                >
-                  {isSavingProgress ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Dang luu...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={18} />
-                      Danh dau hoan thanh bai hoc
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Vertical divider: draggable to resize left/right */}

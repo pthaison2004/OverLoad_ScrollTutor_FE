@@ -47,12 +47,12 @@ export default function InstructorLessonsPage() {
     setLoading(true);
     setErrorMsg("");
     try {
-      const [c, ls] = await Promise.all([
+      const [c, res] = await Promise.all([
         coursesApi.getById(courseId),
-        coursesApi.getLessons(courseId),
+        lessonsApi.getByCourse(courseId),
       ]);
       setCourse(c);
-      setLessons(ls);
+      setLessons(res.items || []);
     } catch (err: any) {
       setErrorMsg(err.message || "Không thể tải dữ liệu.");
     } finally {

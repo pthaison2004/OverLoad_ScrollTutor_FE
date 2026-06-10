@@ -192,6 +192,9 @@ export const lessonsApi = {
   getById: (id: number) =>
     request<Lesson>(`/lessons/${id}`),
 
+  getByCourse: (courseId: number) =>
+    request<{ items: Lesson[] }>(`/lessons?courseId=${courseId}&pageSize=100`),
+
   create: (body: CreateLessonRequest) =>
     request<Lesson>("/lessons", { method: "POST", body: JSON.stringify(body) }),
 
