@@ -262,12 +262,8 @@ export default function LandingPage() {
         transition: "all 0.3s",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, background: "linear-gradient(135deg,#2563eb,#7c3aed)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg viewBox="0 0 40 40" width="20" height="20">
-              <path d="M20 4 L34 12 L34 28 L20 36 L6 28 L6 12 Z" fill="none" stroke="white" strokeWidth="3"/>
-              <path d="M14 16 Q20 10 26 16 Q20 22 14 16Z" fill="white"/>
-              <path d="M14 24 Q20 18 26 24 Q20 30 14 24Z" fill="rgba(255,255,255,0.6)"/>
-            </svg>
+          <div style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <img src="/logo.png" alt="ScrollTutor" style={{ width: 28, height: 28, objectFit: "contain" }} />
           </div>
           <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.3px" }}>ScrollTutor</span>
         </div>
@@ -614,11 +610,8 @@ export default function LandingPage() {
       {/* ── FOOTER ── */}
       <footer style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "40px 5%", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, background: "linear-gradient(135deg,#2563eb,#7c3aed)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg viewBox="0 0 40 40" width="16" height="16">
-              <path d="M20 4 L34 12 L34 28 L20 36 L6 28 L6 12 Z" fill="none" stroke="white" strokeWidth="3.5"/>
-              <path d="M14 16 Q20 10 26 16 Q20 22 14 16Z" fill="white"/>
-            </svg>
+          <div style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <img src="/logo.png" alt="ScrollTutor" style={{ width: 24, height: 24, objectFit: "contain" }} />
           </div>
           <span style={{ fontWeight: 700, color: "#64748b", fontSize: 14 }}>ScrollTutor © 2026</span>
         </div>

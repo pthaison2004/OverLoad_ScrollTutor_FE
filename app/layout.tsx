@@ -3,7 +3,7 @@ import "./globals.css";
 import AIChatBox from "../components/chat/AIChatBox";
 
 export const metadata: Metadata = {
-  title: "OverLoad - Học lập trình online",
+  title: "ScrollTutor - Học lập trình online",
   description: "Nền tảng học lập trình trực tuyến hàng đầu Việt Nam",
 };
 

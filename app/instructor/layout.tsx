@@ -57,7 +57,7 @@ function InstructorToolbar() {
         <div>
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold text-slate-800 tracking-wide">
-              OverLoad Studio
+              ScrollTutor Studio
             </h2>
             <span className="px-2.5 py-0.5 bg-blue-50 border border-blue-100 text-blue-600 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0">
               Instructor
@@ -142,7 +142,7 @@ function InstructorToolbar() {
               {user?.fullName ?? "Instructor"}
             </p>
             <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">
-              {user?.email ?? "instructor@overload.com"}
+              {user?.email ?? "instructor@scrolltutor.com"}
             </p>
           </div>
 

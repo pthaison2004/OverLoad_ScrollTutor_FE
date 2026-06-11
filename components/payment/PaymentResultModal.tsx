@@ -54,7 +54,7 @@ export default function PaymentResultModal({ status, onClose }: PaymentResultMod
 
             <h1 className="text-xl md:text-2xl font-black text-slate-900 mb-2">Thanh toán thành công!</h1>
             <p className="text-slate-500 text-xs leading-relaxed mb-6">
-              Cảm ơn bạn đã tin tưởng OverLoad. Giao dịch của bạn đã được cổng thanh toán xác nhận. Khóa học hoặc gói dịch vụ của bạn đã sẵn sàng để học.
+              Cảm ơn bạn đã tin tưởng ScrollTutor. Giao dịch của bạn đã được cổng thanh toán xác nhận. Khóa học hoặc gói dịch vụ của bạn đã sẵn sàng để học.
             </p>
 
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 mb-6 text-left space-y-2.5">
@@ -96,7 +96,7 @@ export default function PaymentResultModal({ status, onClose }: PaymentResultMod
               <ShieldAlert size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
               <div className="text-[10px] text-slate-500 space-y-0.5">
                 <p className="font-bold text-slate-800">Yêu cầu hỗ trợ?</p>
-                <p>Nếu có lỗi kỹ thuật, hãy kiểm tra lại tài khoản hoặc liên hệ với bộ phận hỗ trợ của OverLoad.</p>
+                <p>Nếu có lỗi kỹ thuật, hãy kiểm tra lại tài khoản hoặc liên hệ với bộ phận hỗ trợ của ScrollTutor.</p>
               </div>
             </div>
 

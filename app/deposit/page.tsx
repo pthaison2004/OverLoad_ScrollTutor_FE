@@ -283,7 +283,7 @@ export default function DepositPage() {
 
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
                 <p className="text-[9px] text-slate-400 leading-relaxed text-center">
-                  Bằng việc tiến hành nạp tiền, bạn đồng ý với Điều khoản sử dụng và Chính sách giao dịch của OverLoad.
+                  Bằng việc tiến hành nạp tiền, bạn đồng ý với Điều khoản sử dụng và Chính sách giao dịch của ScrollTutor.
                 </p>
               </div>
             </div>
