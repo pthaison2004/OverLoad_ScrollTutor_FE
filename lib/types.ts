@@ -119,17 +119,20 @@ export interface PaginatedCourses {
   pageSize: number;
 }
 
-// ===== Lesson =====
 export interface Lesson {
   id: number;
   courseId: number;
+  courseTitle?: string;
   title: string;
   description: string;
   content: string; // Nội dung text/bài học
   template?: string; // Code template cho editor
   language?: "javascript" | "html" | "css";
   durationMinutes: number;
+  orderIndex: number;
   isFree: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateLessonRequest {

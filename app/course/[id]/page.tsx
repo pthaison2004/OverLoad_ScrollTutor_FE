@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2, Menu, MoreVertical } from "lucide-react";
 import LessonContent from "@/components/course/LessonContent";
 import LessonSidebar from "@/components/course/LessonSidebar";
-import { coursesApi, enrollmentsApi, lessonsApi } from "@/lib/api";
+import { coursesApi, enrollmentsApi, lessonsApi, paymentApi } from "@/lib/api";
 import { getUser, isLoggedIn } from "@/lib/auth";
 import { Course, Lesson, LessonWithProgress } from "@/lib/types";
 import { useLessonProgress } from "@/lib/useLessonProgress";
@@ -42,7 +42,7 @@ export default function CoursePage() {
     setActiveLesson(null);
 
     Promise.all([coursesApi.getById(id), coursesApi.getLessons(id)])
-      .then(([nextCourse, nextLessons]) => {
+      .then(async ([nextCourse, nextLessons]) => {
         setCourse(nextCourse);
         setLessons(nextLessons);
         setActiveLessonId(nextLessons[0]?.id ?? null);
@@ -53,16 +53,28 @@ export default function CoursePage() {
           return;
         }
 
-        enrollmentsApi
-          .getByUser(user.id)
-          .then((enrollments) => {
-            const enrolled = enrollments.some((enrollment) => enrollment.courseId === id);
-            setIsEnrolled(enrolled);
-            if (enrolled) {
-              loadCourseProgress(id);
+        try {
+          const enrollments = await enrollmentsApi.getByUser(user.id);
+          const enrolled = enrollments.some((enrollment) => enrollment.courseId === id);
+
+          if (enrolled) {
+            setIsEnrolled(true);
+            loadCourseProgress(id);
+          } else if (nextCourse.level === "Beginner" || nextCourse.price === 0) {
+            // Auto-enroll for free courses
+            try {
+              await enrollmentsApi.enroll(user.id, id);
+            } catch {
+              // Already enrolled is fine
             }
-          })
-          .catch(() => setIsEnrolled(false));
+            setIsEnrolled(true);
+            loadCourseProgress(id);
+          } else {
+            setIsEnrolled(false);
+          }
+        } catch {
+          setIsEnrolled(false);
+        }
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load course"))
       .finally(() => setLoading(false));
@@ -128,13 +140,38 @@ export default function CoursePage() {
       return;
     }
 
+    if (!course) return;
+
+    setLessonLoading(true);
     try {
-      await enrollmentsApi.enroll(user.id, id);
-    } catch {
-      // Already enrolled is treated as success.
+      if (course.price > 0) {
+        const fromPath = typeof window !== "undefined" ? window.location.pathname : "/";
+        const res = await paymentApi.createLink({
+          courseId: id,
+          returnUrl: `${window.location.origin}/payment/success?from=${encodeURIComponent(fromPath)}`,
+          cancelUrl: `${window.location.origin}/payment/cancel?from=${encodeURIComponent(fromPath)}`,
+        });
+        if (res && res.checkoutUrl) {
+          window.location.href = res.checkoutUrl;
+        } else {
+          throw new Error("Không thể tạo liên kết thanh toán.");
+        }
+      } else {
+        await enrollmentsApi.enroll(user.id, id);
+        setIsEnrolled(true);
+        loadCourseProgress(id);
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("already") || msg.includes("409")) {
+        setIsEnrolled(true);
+        loadCourseProgress(id);
+      } else {
+        setError(msg || "Có lỗi xảy ra, vui lòng thử lại.");
+      }
     } finally {
-      setIsEnrolled(true);
-      loadCourseProgress(id);
+      setLessonLoading(false);
     }
   };
 
@@ -244,12 +281,20 @@ export default function CoursePage() {
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <div className="text-center">
                 <h2 className="text-xl font-bold text-slate-800 mb-2">{course.title}</h2>
-                <p className="text-slate-500 text-sm mb-6">Dang ky khoa hoc de bat dau hoc</p>
+                <p className="text-slate-500 text-sm mb-6">
+                  {course.price > 0 ? "Mua khóa học để bắt đầu học" : "Đăng ký khóa học để bắt đầu học"}
+                </p>
                 <button
                   onClick={handleEnroll}
-                  className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+                  disabled={lessonLoading}
+                  className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 mx-auto disabled:opacity-60"
                 >
-                  {isLoggedIn() ? "Dang ky hoc mien phi" : "Dang nhap de hoc"}
+                  {lessonLoading && <Loader2 size={14} className="animate-spin" />}
+                  {!isLoggedIn()
+                    ? "Đăng nhập để học"
+                    : course.price > 0
+                      ? `Mua khóa học - ${course.price.toLocaleString("vi-VN")} VND`
+                      : "Bắt đầu học ngay"}
                 </button>
               </div>
             </div>

@@ -101,6 +101,8 @@ export default function InstructorLessonsPage() {
           courseId,
         });
         triggerSuccess(`Đã cập nhật bài học "${formData.title}"`);
+        setModalOpen(false);
+        fetchData();
       } else {
         const newL = await lessonsApi.create({
           ...formData,
@@ -261,7 +263,7 @@ export default function InstructorLessonsPage() {
                   <div className="flex items-center gap-4 p-4">
                     {/* Order badge */}
                     <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-sm font-black text-slate-400 shrink-0">
-                      {index + 1}
+                      {lesson.orderIndex || index + 1}
                     </div>
 
                     {/* Info */}

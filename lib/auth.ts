@@ -34,7 +34,16 @@ export function getUser(): User | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const user = JSON.parse(raw) as User;
+    // Normalize fields that may be missing from older localStorage data
+    if (!user.studentVerificationStatus) {
+      user.studentVerificationStatus = "NONE";
+    }
+    if (user.hasSeenStudentRejection === undefined || user.hasSeenStudentRejection === null) {
+      user.hasSeenStudentRejection = false;
+    }
+    return user;
   } catch {
     return null;
   }

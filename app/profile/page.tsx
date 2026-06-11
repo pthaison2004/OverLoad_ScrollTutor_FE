@@ -260,7 +260,7 @@ export default function ProfilePage() {
                           } />
                           {user.studentVerificationStatus === "PENDING" && "Đang chờ xác minh"}
                           {user.studentVerificationStatus === "REJECTED" && "Xác minh bị từ chối"}
-                          {user.studentVerificationStatus === "NONE" && "Xác minh sinh viên"}
+                          {(!user.studentVerificationStatus || user.studentVerificationStatus === "NONE") && "Xác minh sinh viên"}
                         </button>
                       )}
                     </>
@@ -351,7 +351,7 @@ export default function ProfilePage() {
               Xác minh Học sinh / Sinh viên
             </h2>
 
-            {(user.studentVerificationStatus === "NONE" || reSubmitMode) && (
+            {(!user.studentVerificationStatus || user.studentVerificationStatus === "NONE" || reSubmitMode) && (
               <div>
                 <p className="text-xs text-slate-500 mb-4 leading-relaxed">
                   Tải ảnh thẻ học sinh/sinh viên làm bằng chứng để nhận thêm <strong className="text-blue-600">30% ưu đãi</strong> khi đăng ký hoặc gia hạn các gói PRO.

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import parse, { domToReact, Element } from "html-react-parser";
 import { Course, Lesson } from "@/lib/types";
 import { BookOpen, MessageSquare, User, Clock, Users, Play, RotateCcw, Check, Loader2 } from "lucide-react";
@@ -445,7 +445,7 @@ export default function LessonContent({
     setMessage("");
   }, [lesson.id, initialCompleted]);
 
-  const handleMarkLessonComplete = async () => {
+  const handleMarkLessonComplete = useCallback(async () => {
     const user = getUser();
     if (!user) {
       setMessage("Vui lòng đăng nhập để lưu tiến trình");
@@ -462,7 +462,13 @@ export default function LessonContent({
       setMessage(err instanceof Error ? err.message : "Không thể lưu tiến trình");
       window.setTimeout(() => setMessage(""), 3000);
     }
-  };
+  }, [lesson, markLessonComplete, onLessonCompleted]);
+
+  useEffect(() => {
+    if (scrollPercentage >= 99 && !isCompleted && !isSavingProgress) {
+      handleMarkLessonComplete();
+    }
+  }, [scrollPercentage, isCompleted, isSavingProgress, handleMarkLessonComplete]);
 
   useEffect(() => {
     // Use an effect that mounts once to avoid reattaching listeners during drag
@@ -627,42 +633,6 @@ export default function LessonContent({
           {/* Left: Content Wrapper */}
           <div style={{ width: `${leftWidth}%` }} className="border-r border-slate-100 flex flex-row overflow-hidden h-full bg-white relative">
             
-            {/* Left Child: Vertical Timeline */}
-            {totalSteps > 1 && (
-              <div className="w-10 shrink-0 flex flex-col items-center py-8 bg-slate-50/30 border-r border-slate-100/50 relative h-full">
-                <div className="absolute top-8 bottom-8 w-[2px] bg-slate-100" />
-                <div
-                  className="absolute top-8 w-[2px] bg-blue-500 transition-all duration-500 ease-out"
-                  style={{
-                    height: totalSteps > 1 ? `${(activeStepIndex / (totalSteps - 1)) * 100}%` : "0%",
-                    maxHeight: "calc(100% - 64px)"
-                  }}
-                />
-                <div className="absolute top-8 bottom-8 flex flex-col justify-between items-center w-full">
-                  {allSteps.map((_, i) => {
-                    const isActive = i === activeStepIndex;
-                    const isPassed = i < activeStepIndex;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => loadStep(i, allSteps[i])}
-                        className={`w-4 h-4 rounded-full z-10 flex items-center justify-center transition-all duration-300 ${
-                          isActive
-                            ? "bg-blue-600 border-[3px] border-blue-100 scale-125 shadow-md shadow-blue-200"
-                            : isPassed
-                            ? "bg-blue-500 border-2 border-transparent"
-                            : "bg-white border-2 border-slate-300 hover:border-slate-400"
-                        }`}
-                        title={`Bước ${i + 1}`}
-                      >
-                        {isActive && <div className="w-1 h-1 rounded-full bg-white" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* Right Child: Scrollable Lesson Text Content */}
             <div
               ref={leftScrollContainerRef}
@@ -795,27 +765,6 @@ export default function LessonContent({
                 />
               )}
 
-              {!isCompleted && (
-                <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">
-                  <button
-                    onClick={handleMarkLessonComplete}
-                    disabled={isSavingProgress}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold rounded-lg transition-colors text-base"
-                  >
-                    {isSavingProgress ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Đang lưu...
-                      </>
-                    ) : (
-                      <>
-                        <Check size={18} />
-                        Đánh dấu hoàn thành bài học
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 

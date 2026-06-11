@@ -100,8 +100,14 @@ export default function HomePage() {
               <div className="absolute right-24 bottom-0 w-24 h-24 bg-white/10 rounded-full blur-sm" />
               <div className="pl-10 z-10">
                 <div className="text-white/90 text-sm mb-2">Học lập trình miễn phí</div>
-                <button className="px-5 py-2 border-2 border-white text-white text-sm font-semibold rounded-full hover:bg-white hover:text-purple-700 transition-colors">
-                  ĐĂNG KÝ NGAY
+                <button
+                  onClick={() => {
+                    const el = document.getElementById("courses-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="px-5 py-2 border-2 border-white text-white text-sm font-semibold rounded-full hover:bg-white hover:text-purple-700 transition-colors"
+                >
+                  HỌC NGAY
                 </button>
               </div>
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
@@ -115,7 +121,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          <section className="mb-6">
+          <section id="courses-section" className="mb-6">
             <h1 className="text-2xl font-bold text-slate-800">
               {selectedCategory ? `Khóa học ${categoryTitles[selectedCategory]}` : "Khóa học nổi bật"}
             </h1>
