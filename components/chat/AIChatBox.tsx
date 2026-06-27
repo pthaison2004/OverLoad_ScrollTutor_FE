@@ -7,6 +7,7 @@ import { Bot, X, Send, Loader2, MessageCircle, Trash2, ChevronDown } from "lucid
 interface Message {
   role: "user" | "model";
   content: string;
+  isError?: boolean;
 }
 
 interface ChatResponse {
@@ -14,6 +15,7 @@ interface ChatResponse {
   data: {
     reply: string;
     isBlocked: boolean;
+    blockReason?: string;
     InputToken: number;
     OutputToken: number;
   };
@@ -43,6 +45,7 @@ function TypingDots() {
 
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === "user";
+  const isError = msg.isError === true;
   const [purify, setPurify] = useState<((s: string) => string) | null>(null);
 
   useEffect(() => {
@@ -57,6 +60,49 @@ function MessageBubble({ msg }: { msg: Message }) {
     })();
     return () => { mounted = false; };
   }, []);
+
+  // Error message styling (AI limit reached)
+  if (isError) {
+    return (
+      <div style={{
+        display: "flex", justifyContent: "flex-start",
+        marginBottom: 12, gap: 8, alignItems: "flex-end",
+      }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+          background: "linear-gradient(135deg, #dc2626, #b91c1c)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Bot size={14} color="white" />
+        </div>
+        <div style={{
+          maxWidth: "78%", padding: "12px 14px",
+          borderRadius: "18px 18px 18px 4px",
+          background: "rgba(220, 38, 38, 0.12)",
+          border: "1px solid rgba(220, 38, 38, 0.3)",
+          color: "#fca5a5", fontSize: 13, lineHeight: 1.6,
+          wordBreak: "break-word",
+        }}>
+          <div style={{ marginBottom: 8 }}>{msg.content}</div>
+          <a
+            href="/pricing"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "6px 14px", borderRadius: 10,
+              background: "linear-gradient(135deg, #7c3aed, #2563eb)",
+              color: "white", fontSize: 12, fontWeight: 700,
+              textDecoration: "none", transition: "opacity 0.2s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+          >
+            ⚡ Nâng cấp ngay
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       display: "flex", justifyContent: isUser ? "flex-end" : "flex-start",
@@ -145,8 +191,12 @@ export default function AIChatBox() {
       const data: ChatResponse = await res.json();
 
       if (data.data.isBlocked) {
-        setError("Tin nhắn bị chặn bởi bộ lọc nội dung.");
-        setMessages((prev) => prev.slice(0, -1));
+        const errorMsg: Message = {
+          role: "model",
+          content: data.data.blockReason || data.data.reply || "Tin nhắn bị chặn bởi bộ lọc nội dung.",
+          isError: true,
+        };
+        setMessages((prev) => [...prev, errorMsg]);
         return;
       }
 

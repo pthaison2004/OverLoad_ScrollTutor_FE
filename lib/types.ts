@@ -90,7 +90,7 @@ export interface CreatePaymentLinkRequest {
 }
 
 export interface CreateProPaymentLinkRequest {
-  packageType: "month" | "year";
+  packageType: "plus-month" | "month" | "year";
   returnUrl?: string;
   cancelUrl?: string;
 }
