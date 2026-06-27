@@ -5,6 +5,9 @@ import AIChatBox from "../components/chat/AIChatBox";
 export const metadata: Metadata = {
   title: "ScrollTutor - Học lập trình online",
   description: "Nền tảng học lập trình trực tuyến hàng đầu Việt Nam",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
