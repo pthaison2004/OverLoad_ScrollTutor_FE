@@ -23,18 +23,28 @@ export default function LoginPage() {
       setRefreshToken(res.refreshToken);
       saveUser(res.user);
 
-      const userRole = res.user.role;
-      setTimeout(() => {
-        if (userRole === "Instructor") {
-          router.push("/instructor/dashboard");
-        } else if (userRole === "Admin") {
-          router.push("/admin");
-        } else if (userRole === "Manager") {
-          router.push("/manager");
-        } else {
-          router.push("/home");
-        }
-      }, 50);
+      // Check if there's a saved redirect URL (e.g. user was viewing a course before login)
+      const redirectUrl = typeof window !== "undefined"
+        ? sessionStorage.getItem("redirectAfterLogin")
+        : null;
+
+      if (redirectUrl) {
+        sessionStorage.removeItem("redirectAfterLogin");
+        setTimeout(() => router.push(redirectUrl), 50);
+      } else {
+        const userRole = res.user.role;
+        setTimeout(() => {
+          if (userRole === "Instructor") {
+            router.push("/instructor/dashboard");
+          } else if (userRole === "Admin") {
+            router.push("/admin");
+          } else if (userRole === "Manager") {
+            router.push("/manager");
+          } else {
+            router.push("/home");
+          }
+        }, 50);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Đăng nhập thất bại");
     } finally {

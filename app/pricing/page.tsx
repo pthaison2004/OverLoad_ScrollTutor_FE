@@ -23,7 +23,6 @@ export default function PricingPage() {
   // Giá gói
   const plusMonthlyPrice = isStudentApproved ? 48300 : 69000;
   const proMonthlyPrice = isStudentApproved ? 83300 : 119000;
-  const proYearlyPrice = isStudentApproved ? 699300 : 999000;
 
   useEffect(() => {
     setMounted(true);
@@ -93,7 +92,7 @@ export default function PricingPage() {
     );
   }
 
-  const handleUpgrade = async (packageType: "plus-month" | "month" | "year") => {
+  const handleUpgrade = async (packageType: "plus-month" | "month") => {
     if (!user) { router.push("/login"); return; }
     setLoading(packageType); setError("");
     try {
@@ -110,7 +109,7 @@ export default function PricingPage() {
     }
   };
 
-  const handleUpgradeWithBalance = async (packageType: "plus-month" | "month" | "year") => {
+  const handleUpgradeWithBalance = async (packageType: "plus-month" | "month") => {
     if (!user) { router.push("/login"); return; }
     setLoading(packageType + "-balance"); setError("");
     try {
@@ -170,14 +169,8 @@ export default function PricingPage() {
     "Hỗ trợ giải đáp thắc mắc 1:1 từ Giảng viên",
   ];
 
-  const getPrice = (pkg: "plus-month" | "month" | "year") => {
-    if (pkg === "plus-month") return plusMonthlyPrice;
-    if (pkg === "month") return proMonthlyPrice;
-    return proYearlyPrice;
-  };
-
   const renderUpgradeButton = (
-    packageType: "plus-month" | "month" | "year",
+    packageType: "plus-month" | "month",
     price: number,
     label: string,
     isPrimary: boolean
@@ -211,7 +204,7 @@ export default function PricingPage() {
           disabled={loading !== null}
           className={`w-full py-3 rounded-xl font-bold text-xs transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 ${
             activePlan
-              ? "bg-red-600 hover:bg-red-700 text-white shadow-[0_4px_12px_rgba(220,38,38,0.15)]"
+              ? "bg-red-655 hover:bg-red-755 text-white shadow-[0_4px_12px_rgba(220,38,38,0.15)]"
               : isPrimary
                 ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-100"
                 : "bg-slate-900 hover:bg-slate-800 text-white shadow-[0_4px_12px_rgba(15,23,42,0.1)]"
@@ -233,8 +226,8 @@ export default function PricingPage() {
         disabled={loading !== null}
         className={`w-full py-2.5 rounded-xl border backdrop-blur-md transition-all duration-200 flex items-center justify-center gap-2 hover:shadow-sm ${
           activePlan
-            ? "bg-red-500/10 hover:bg-red-500/20 border-red-300/30 text-red-600 hover:text-red-800"
-            : "bg-slate-200/20 hover:bg-slate-200/35 border-slate-300/30 text-slate-650 hover:text-slate-850"
+            ? "bg-red-500/10 hover:bg-red-500/20 border-red-300/30 text-red-600 hover:text-red-850"
+            : "bg-slate-200/20 hover:bg-slate-200/35 border-slate-300/30 text-slate-600 hover:text-slate-800"
         }`}
       >
         <Wallet size={14} className={`shrink-0 ${activePlan ? "text-red-500" : "text-slate-400"}`} />
@@ -267,7 +260,7 @@ export default function PricingPage() {
             <>
               <span className="w-1 h-1 bg-slate-300 rounded-full" />
               <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-250 flex items-center gap-1">
-                <ShieldCheck size={12} className="text-emerald-500" />
+                <ShieldCheck size={12} className="text-emerald-505" />
                 Học sinh/Sinh viên (-30%)
               </span>
             </>
@@ -280,8 +273,8 @@ export default function PricingPage() {
         <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-3">
           Chọn gói phù hợp với bạn
         </h1>
-        <p className="text-slate-500 text-sm leading-relaxed">
-          Mở khóa toàn bộ khóa học Premium nâng cao và tính năng AI Chatbot hỗ trợ học tập không giới hạn.
+        <p className="text-slate-505 text-sm leading-relaxed">
+          Mở khóa toàn bộ khóa học Premium nâng cao và tính năng AI Chatbot hỗ trợ học tập.
         </p>
       </div>
 
@@ -308,8 +301,8 @@ export default function PricingPage() {
         </div>
       )}
 
-      {/* 3-Column Pricing Grid */}
-      <div className="w-full max-w-5xl grid md:grid-cols-3 gap-6 mb-12 z-10 items-stretch">
+      {/* 2-Column Pricing Grid */}
+      <div className="w-full max-w-3xl grid md:grid-cols-2 gap-6 mb-12 z-10 items-stretch">
 
         {/* PLUS Monthly */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col hover:shadow-md transition-all duration-300 group relative overflow-hidden">
@@ -334,8 +327,12 @@ export default function PricingPage() {
           </div>
           <div className="space-y-3 mb-6 flex-1">
             {plusFeatures.map((feat, idx) => (
-              <div key={idx} className="flex gap-2.5 items-center text-xs text-slate-655">
-                <Check size={14} className="text-amber-500 flex-shrink-0" />
+              <div key={idx} className="flex gap-2.5 items-center text-xs text-slate-600">
+                {feat.includes("20 câu hỏi") ? (
+                  <MessageCircle size={14} className="text-amber-550 flex-shrink-0" />
+                ) : (
+                  <Check size={14} className="text-amber-500 flex-shrink-0" />
+                )}
                 <span>{feat}</span>
               </div>
             ))}
@@ -347,7 +344,7 @@ export default function PricingPage() {
 
         {/* PRO Monthly (Recommended) */}
         <div className="bg-indigo-50/10 border-2 border-indigo-500 rounded-3xl p-6 flex flex-col relative shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden">
-          <div className="absolute top-0 right-6 -translate-y-1/2 bg-indigo-600 text-white text-[9px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider shadow flex items-center gap-1 z-10">
+          <div className="absolute top-0 right-6 -translate-y-1/2 bg-indigo-650 text-white text-[9px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider shadow flex items-center gap-1 z-10">
             <Trophy size={10} fill="white" />
             Phổ biến nhất
           </div>
@@ -359,7 +356,7 @@ export default function PricingPage() {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h3 className="text-lg font-bold text-slate-900">Gói Pro</h3>
-              <p className="text-slate-500 text-[10px] mt-0.5">Không giới hạn AI Chatbot</p>
+              <p className="text-slate-505 text-[10px] mt-0.5">Không giới hạn AI Chatbot</p>
             </div>
             <div className="p-2 bg-indigo-50 rounded-xl border border-indigo-200">
               <Zap size={18} className="text-indigo-600 fill-indigo-600" />
@@ -373,52 +370,17 @@ export default function PricingPage() {
           <div className="space-y-3 mb-6 flex-1">
             {proFeatures.map((feat, idx) => (
               <div key={idx} className="flex gap-2.5 items-center text-xs text-slate-700">
-                <Check size={14} className="text-indigo-600 flex-shrink-0" />
+                {feat.includes("Không giới hạn") ? (
+                  <Sparkles size={14} className="text-indigo-600 flex-shrink-0 animate-pulse" />
+                ) : (
+                  <Check size={14} className="text-indigo-600 flex-shrink-0" />
+                )}
                 <span className="font-semibold text-slate-900">{feat}</span>
               </div>
             ))}
           </div>
           <div className="space-y-2">
             {renderUpgradeButton("month", proMonthlyPrice, "Nâng cấp Pro", true)}
-          </div>
-        </div>
-
-        {/* PRO Yearly */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col hover:shadow-md transition-all duration-300 group relative overflow-hidden">
-          {isStudentApproved && (
-            <div className="absolute top-2 right-2 bg-emerald-50 text-emerald-600 border border-emerald-150 text-[9px] font-bold px-2 py-0.5 rounded">
-              Sinh viên -30%
-            </div>
-          )}
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-1.5">
-                Pro Năm
-                <span className="text-[9px] bg-indigo-100 border border-indigo-200 text-indigo-600 px-2 py-0.5 rounded-full font-bold">
-                  {isStudentApproved ? "Tiết kiệm 51%" : "Tiết kiệm 30%"}
-                </span>
-              </h3>
-              <p className="text-slate-400 text-[10px] mt-0.5">Tiết kiệm nhất</p>
-            </div>
-            <div className="p-2 bg-slate-50 rounded-xl border border-slate-200">
-              <Zap size={18} className="text-indigo-500" />
-            </div>
-          </div>
-          <div className="mb-4 flex items-baseline gap-1">
-            <span className="text-3xl font-extrabold text-slate-900">{proYearlyPrice.toLocaleString("vi-VN")}đ</span>
-            <span className="text-slate-400 text-xs">/ năm</span>
-            {isStudentApproved && <span className="text-[11px] text-slate-400 line-through ml-1.5">999.000đ</span>}
-          </div>
-          <div className="space-y-3 mb-6 flex-1">
-            {proFeatures.map((feat, idx) => (
-              <div key={idx} className="flex gap-2.5 items-center text-xs text-slate-655">
-                <Check size={14} className="text-indigo-600 flex-shrink-0" />
-                <span>{feat}</span>
-              </div>
-            ))}
-          </div>
-          <div className="space-y-2">
-            {renderUpgradeButton("year", proYearlyPrice, "Nâng cấp Pro Năm", false)}
           </div>
         </div>
       </div>
@@ -458,7 +420,7 @@ export default function PricingPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowConfirmDeposit({ show: false, amount: 0 })}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-bold text-xs transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-55 hover:text-slate-800 font-bold text-xs transition-colors"
               >
                 Hủy
               </button>

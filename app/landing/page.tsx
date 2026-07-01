@@ -118,8 +118,8 @@ const FAQS = [
     a: "Đây là cách học đặc trưng của ScrollTutor: mỗi khi bạn viết hoặc chỉnh sửa code, giao diện kết quả hiện ra ngay lập tức ở bên cạnh. Bạn thấy được ngay mỗi dòng code tạo ra điều gì — không cần đoán, không cần chạy file riêng.",
   },
   {
-    q: "Gói Pro có những gì khác gói Free?",
-    a: "Gói Free cho bạn học toàn bộ khóa cơ bản (HTML, CSS, JS, React, NodeJS). Gói Pro (69.000đ/tháng) mở khóa các khóa nâng cao, AI hỗ trợ debug & giải thích lỗi, lộ trình học cá nhân hoá và phản hồi code từ mentor.",
+    q: "Gói Plus và Pro khác gì so với gói Free?",
+    a: "Gói Free hỗ trợ học tất cả khóa học cơ bản. Gói Plus (69.000đ/tháng) mở khóa khóa nâng cao và AI Chatbot giới hạn 20 lượt hỏi/ngày. Gói Pro (119.000đ/tháng) cung cấp AI Chatbox không giới hạn và lộ trình học cá nhân hóa hoàn chỉnh.",
   },
   {
     q: "Tôi có thể học trên điện thoại không?",
@@ -309,7 +309,7 @@ export default function LandingPage() {
             <Link href="/register" className="btn-primary" style={{ fontSize: 16, padding: "15px 36px" }}>
               🚀 Bắt đầu học miễn phí
             </Link>
-            <Link href="/home" className="btn-outline" style={{ fontSize: 16, padding: "15px 36px" }}>
+             <Link href="/explore" className="btn-outline" style={{ fontSize: 16, padding: "15px 36px" }}>
               Xem khóa học →
             </Link>
           </div>
@@ -450,7 +450,7 @@ export default function LandingPage() {
 
         <Reveal>
           <div style={{ textAlign: "center" }}>
-            <Link href="/home" className="btn-outline">Xem tất cả khóa học →</Link>
+            <Link href="/explore" className="btn-outline">Xem tất cả khóa học →</Link>
           </div>
         </Reveal>
       </section>
@@ -466,7 +466,7 @@ export default function LandingPage() {
           </div>
         </Reveal>
 
-        <div className="pricing-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, maxWidth: 760, margin: "0 auto" }}>
+        <div className="pricing-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24, maxWidth: 1100, margin: "0 auto" }}>
           {/* Free */}
           <Reveal delay={0}>
             <div className="card-glass" style={{ padding: "36px 32px" }}>
@@ -474,7 +474,7 @@ export default function LandingPage() {
               <div style={{ fontSize: "2.8rem", fontWeight: 900, color: "#f1f5f9", marginBottom: 4 }}>0₫</div>
               <div style={{ fontSize: 13, color: "#475569", marginBottom: 28 }}>Mãi mãi miễn phí</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
-                {["Toàn bộ khóa học cơ bản", "Live code editor", "Lộ trình học rõ ràng", "Cộng đồng học viên"].map(f => (
+                {["Toàn bộ khóa học cơ bản", "Trình soạn thảo Code Live", "Lộ trình học rõ ràng", "Cộng đồng học viên"].map(f => (
                   <div key={f} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14, color: "#94a3b8" }}>
                     <span style={{ color: "#4ade80", fontSize: 16 }}>✓</span> {f}
                   </div>
@@ -484,8 +484,25 @@ export default function LandingPage() {
             </div>
           </Reveal>
 
-          {/* Pro */}
+          {/* Plus */}
           <Reveal delay={100}>
+            <div className="card-glass" style={{ padding: "36px 32px", border: "1px solid rgba(139, 92, 246, 0.2)" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#a78bfa", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>Plus</div>
+              <div style={{ fontSize: "2.8rem", fontWeight: 900, color: "#f1f5f9", marginBottom: 4 }}>69.000₫</div>
+              <div style={{ fontSize: 13, color: "#475569", marginBottom: 28 }}>mỗi tháng</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+                {["Tất cả tính năng Free", "Khóa học nâng cao", "AI Chatbot (20 lượt hỏi/ngày)", "Phản hồi code chi tiết"].map(f => (
+                  <div key={f} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14, color: "#cbd5e1" }}>
+                    <span style={{ color: "#a78bfa", fontSize: 16 }}>✓</span> {f}
+                  </div>
+                ))}
+              </div>
+              <Link href="/register" className="btn-outline" style={{ width: "100%", justifyContent: "center", borderColor: "rgba(139, 92, 246, 0.4)", color: "#a78bfa" }}>Nâng cấp Plus</Link>
+            </div>
+          </Reveal>
+
+          {/* Pro */}
+          <Reveal delay={200}>
             <div style={{
               padding: "36px 32px", borderRadius: 20,
               background: "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(124,58,237,0.2))",
@@ -495,11 +512,11 @@ export default function LandingPage() {
               <div style={{ position: "absolute", top: 16, right: 16, background: "linear-gradient(135deg,#2563eb,#7c3aed)", color: "white", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>PHỔ BIẾN</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>Pro</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
-                <span style={{ fontSize: "2.8rem", fontWeight: 900, color: "#f1f5f9" }}>69.000₫</span>
+                <span style={{ fontSize: "2.8rem", fontWeight: 900, color: "#f1f5f9" }}>119.000₫</span>
               </div>
               <div style={{ fontSize: 13, color: "#475569", marginBottom: 28 }}>mỗi tháng</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
-                {["Tất cả tính năng Free", "Khóa học nâng cao & project thực tế", "AI hỗ trợ debug & giải thích lỗi", "Lộ trình học cá nhân hoá", "Phản hồi code chi tiết"].map(f => (
+                {["Tất cả tính năng Plus", "AI Chatbot KHÔNG GIỚI HẠN", "Lộ trình học cá nhân hóa", "Nhận chứng nhận hoàn thành"].map(f => (
                   <div key={f} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14, color: "#cbd5e1" }}>
                     <span style={{ color: "#60a5fa", fontSize: 16 }}>✓</span> {f}
                   </div>
@@ -599,7 +616,7 @@ export default function LandingPage() {
               <Link href="/register" className="btn-primary" style={{ fontSize: 16, padding: "16px 40px" }}>
                 🚀 Bắt đầu miễn phí ngay
               </Link>
-              <Link href="/home" className="btn-outline" style={{ fontSize: 16, padding: "16px 32px" }}>
+              <Link href="/explore" className="btn-outline" style={{ fontSize: 16, padding: "16px 32px" }}>
                 Xem khóa học
               </Link>
             </div>

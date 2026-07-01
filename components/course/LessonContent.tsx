@@ -46,6 +46,96 @@ function CheckpointOverlay({ question, correctAnswer, onSolve }: CheckpointOverl
     }
   };
 
+  const hasBlank = /_{3,}/.test(question);
+  const lines = hasBlank ? question.split("\n") : [];
+
+  if (hasBlank) {
+    return (
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md z-[100] flex items-center justify-center p-6 select-none">
+        <form onSubmit={handleSubmit} className="bg-[#0f172a] text-[#f8fafc] border border-slate-800 p-6 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full flex items-center gap-1.5 mb-4 shrink-0">
+            <div className="w-3 h-3 rounded-full bg-[#ef4444]" />
+            <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
+            <div className="w-3 h-3 rounded-full bg-[#10b981]" />
+            <span className="text-slate-500 text-xs font-mono ml-2">challenge_exercise.css</span>
+          </div>
+
+          <div className="bg-[#0b0f19] w-full p-5 rounded-xl border border-slate-900 font-mono text-sm text-left mb-5 relative overflow-hidden leading-relaxed">
+            {lines.map((line, idx) => {
+              const lineHasBlank = /_{3,}/.test(line);
+              if (lineHasBlank) {
+                const parts = line.split(/_{3,}/);
+                const prefix = parts[0] ?? "";
+                const suffix = parts[1] ?? "";
+                return (
+                  <div key={idx} className="flex items-center flex-wrap min-h-[24px]">
+                    <span className="text-slate-600 mr-4 select-none w-5 text-right shrink-0">{idx + 1}</span>
+                    <span className="text-blue-400" style={{ whiteSpace: "pre" }}>{prefix}</span>
+                    <span style={{ display: "inline-grid", alignItems: "center", position: "relative" }} className="mx-1">
+                      <span style={{ gridArea: "1 / 1", visibility: "hidden", whiteSpace: "pre" }} className="px-2 py-0.5 border border-transparent font-mono text-sm">
+                        {value.length >= 3 ? value : value + " ".repeat(3 - value.length)}
+                      </span>
+                      <input
+                        type="text"
+                        value={value}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        onChange={(e) => {
+                          setValue(e.target.value);
+                          setIsError(false);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSubmit(e);
+                          }
+                        }}
+                        className={`w-full px-2 py-0.5 bg-[#1e293b] border rounded font-mono text-sm text-center outline-none transition-all ${
+                          isError
+                            ? "border-red-500 text-red-400 focus:ring-2 focus:ring-red-500/20"
+                            : isFocused
+                            ? "border-blue-500 text-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                            : "border-slate-700 text-slate-200"
+                        }`}
+                        style={{ gridArea: "1 / 1" }}
+                        placeholder="???"
+                        autoFocus
+                      />
+                    </span>
+                    <span className="text-emerald-400" style={{ whiteSpace: "pre" }}>{suffix}</span>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={idx} className="flex items-center flex-wrap min-h-[24px]">
+                    <span className="text-slate-600 mr-4 select-none w-5 text-right shrink-0">{idx + 1}</span>
+                    <span className="text-slate-400" style={{ whiteSpace: "pre" }}>{line}</span>
+                  </div>
+                );
+              }
+            })}
+          </div>
+
+          {isError && (
+            <p className="text-red-400 text-xs font-semibold mb-4 flex items-center gap-1.5">
+              ⚠️ Mã nguồn chưa chính xác. Hãy thử lại!
+            </p>
+          )}
+
+          <div className="w-full flex gap-3">
+            <button
+              type="submit"
+              className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/10 active:scale-[0.98] transition-all"
+            >
+              Kiểm tra đáp án
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
       <div className="bg-white/95 border border-white/60 p-8 rounded-3xl max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">

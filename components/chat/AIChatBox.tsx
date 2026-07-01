@@ -162,7 +162,10 @@ export default function AIChatBox() {
   }, [open]);
 
   // Hide on auth pages
-  if (["/", "/login", "/register"].includes(pathname)) return null;
+  if (["/login", "/register"].includes(pathname)) return null;
+
+  // On the root path "/", hide only if the user is not logged in (public landing page)
+  if (pathname === "/" && typeof window !== "undefined" && !getToken()) return null;
 
   const getRecentHistory = (): Message[] => messages.slice(-6);
 
@@ -271,7 +274,7 @@ export default function AIChatBox() {
       {/* Chat panel */}
       {open && (
         <div style={{
-          position: "fixed", bottom: 86, right: 24, zIndex: 998,
+          position: "fixed", bottom: 86, right: 24, zIndex: 99998,
           width: 360, height: 520,
           background: "#0f172a",
           border: "1px solid rgba(255,255,255,0.08)",

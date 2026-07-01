@@ -108,12 +108,17 @@ export default function CoursePage() {
 
   const handleLessonSelect = (lessonId: number) => {
     if (!isEnrolled) return;
+    const targetLesson = lessons.find((l) => l.id === lessonId);
+    if (targetLesson && "isLocked" in targetLesson && targetLesson.isLocked) {
+      alert("Bạn cần hoàn thành bài học trước đó để mở khóa bài học này.");
+      return;
+    }
     setActiveLessonId(lessonId);
   };
 
   const handleLessonCompleted = (lessonId: number) => {
-    setLessons((currentLessons) =>
-      currentLessons.map((lesson) =>
+    setLessons((currentLessons) => {
+      const updated = currentLessons.map((lesson) =>
         lesson.id === lessonId
           ? {
               ...lesson,
@@ -123,13 +128,28 @@ export default function CoursePage() {
               isLocked: false,
             }
           : lesson
-      )
-    );
+      );
+      // Unlock the next lesson in the list optimistically
+      const completedIdx = updated.findIndex((l) => l.id === lessonId);
+      if (completedIdx >= 0 && completedIdx < updated.length - 1) {
+        updated[completedIdx + 1] = {
+          ...updated[completedIdx + 1],
+          isLocked: false,
+        };
+      }
+      return updated;
+    });
+
+    // Sync from server
+    coursesApi.getLessons(id).then(setLessons).catch(console.error);
     loadCourseProgress(id);
   };
 
   const handleEnroll = async () => {
     if (!isLoggedIn()) {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("redirectAfterLogin", window.location.pathname);
+      }
       router.push("/login");
       return;
     }
@@ -250,7 +270,7 @@ export default function CoursePage() {
             </button>
             <button
               onClick={() => nextLesson && handleLessonSelect(nextLesson.id)}
-              disabled={!nextLesson}
+              disabled={!nextLesson || ("isLocked" in nextLesson && nextLesson.isLocked)}
               className="px-4 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-1 disabled:opacity-30"
             >
               Tiep theo <ChevronRight size={14} />

@@ -52,30 +52,41 @@ export default function Navbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        <button
-          onClick={() => setIsPricingOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-xl text-sm font-600 hover:bg-orange-600 transition-colors"
-        >
-          <Zap size={14} fill="white" />
-          Nâng cấp
-        </button>
+        {user ? (
+          <>
+            <button
+              onClick={() => setIsPricingOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-xl text-sm font-600 hover:bg-orange-600 transition-colors"
+            >
+              <Zap size={14} fill="white" />
+              Nâng cấp
+            </button>
 
-        <div className="flex items-center gap-2">
-          <div className="text-right">
-            <div className="text-sm font-600 text-slate-700 leading-tight">
-              {user?.fullName ?? "Khách"}
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className="text-sm font-600 text-slate-700 leading-tight">
+                  {user.fullName}
+                </div>
+                <div className="flex gap-1 justify-end mt-0.5">
+                  <span className="text-xs bg-slate-100 text-slate-500 px-1.5 rounded font-500">Free</span>
+                  <span className="text-xs bg-blue-50 text-primary px-1.5 rounded font-500">Học viên</span>
+                </div>
+              </div>
+              <Link href="/profile">
+                <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center text-white font-700 text-sm cursor-pointer hover:bg-primary-hover transition-colors">
+                  {initials}
+                </div>
+              </Link>
             </div>
-            <div className="flex gap-1 justify-end mt-0.5">
-              <span className="text-xs bg-slate-100 text-slate-500 px-1.5 rounded font-500">Free</span>
-              <span className="text-xs bg-blue-50 text-primary px-1.5 rounded font-500">Học viên</span>
-            </div>
-          </div>
-          <Link href="/profile">
-            <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center text-white font-700 text-sm cursor-pointer hover:bg-primary-hover transition-colors">
-              {initials}
-            </div>
+          </>
+        ) : (
+          <Link
+            href="/login"
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Đăng nhập
           </Link>
-        </div>
+        )}
       </div>
       {isPricingOpen && <PricingModal onClose={() => setIsPricingOpen(false)} />}
 

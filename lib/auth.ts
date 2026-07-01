@@ -3,6 +3,7 @@ import { User } from "./types";
 const TOKEN_KEY = "ol_access_token";
 const REFRESH_KEY = "ol_refresh_token";
 const USER_KEY = "ol_user";
+const LAST_ACTIVITY_KEY = "ol_last_activity";
 
 // ── Access Token ──────────────────────────────────────────────────────────────
 export function getToken(): string | null {
@@ -55,9 +56,27 @@ export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
 }
 
 export function isLoggedIn(): boolean {
   if (typeof window === "undefined") return false;
   return !!localStorage.getItem(TOKEN_KEY);
+}
+
+// ── Last Activity ─────────────────────────────────────────────────────────────
+export function setLastActivity() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+}
+
+export function getLastActivity(): number | null {
+  if (typeof window === "undefined") return null;
+  const val = localStorage.getItem(LAST_ACTIVITY_KEY);
+  return val ? parseInt(val, 10) : null;
+}
+
+export function clearLastActivity() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
 }

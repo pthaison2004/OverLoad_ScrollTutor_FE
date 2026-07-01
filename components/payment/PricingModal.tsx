@@ -24,7 +24,6 @@ export default function PricingModal({ onClose }: PricingModalProps) {
   // Giá gói
   const plusMonthlyPrice = isStudentApproved ? 48300 : 69000;
   const proMonthlyPrice = isStudentApproved ? 83300 : 119000;
-  const proYearlyPrice = isStudentApproved ? 699300 : 999000;
 
   useEffect(() => {
     setMounted(true);
@@ -46,7 +45,6 @@ export default function PricingModal({ onClose }: PricingModalProps) {
             }))
             .sort((a, b) => a.enrolledAt.getTime() - b.enrolledAt.getTime());
 
-          // Check PRO first, then PLUS
           for (const planType of ["pro", "plus"] as const) {
             const planEnrollments = subscriptionEnrollments.filter(e => planType === "pro" ? e.isPro : !e.isPro);
             if (planEnrollments.length > 0) {
@@ -85,7 +83,7 @@ export default function PricingModal({ onClose }: PricingModalProps) {
 
   if (!mounted) return null;
 
-  const handleUpgrade = async (packageType: "plus-month" | "month" | "year") => {
+  const handleUpgrade = async (packageType: "plus-month" | "month") => {
     if (!user) { router.push("/login"); return; }
     setLoading(packageType); setError("");
     try {
@@ -103,7 +101,7 @@ export default function PricingModal({ onClose }: PricingModalProps) {
     }
   };
 
-  const handleUpgradeWithBalance = async (packageType: "plus-month" | "month" | "year") => {
+  const handleUpgradeWithBalance = async (packageType: "plus-month" | "month") => {
     if (!user) { router.push("/login"); return; }
     setLoading(packageType + "-balance"); setError("");
     try {
@@ -129,14 +127,8 @@ export default function PricingModal({ onClose }: PricingModalProps) {
     "Hỗ trợ 1:1 từ Giảng viên",
   ];
 
-  const getPrice = (pkg: "plus-month" | "month" | "year") => {
-    if (pkg === "plus-month") return plusMonthlyPrice;
-    if (pkg === "month") return proMonthlyPrice;
-    return proYearlyPrice;
-  };
-
   const renderUpgradeButton = (
-    packageType: "plus-month" | "month" | "year",
+    packageType: "plus-month" | "month",
     price: number,
     label: string,
     isPrimary: boolean
@@ -157,7 +149,7 @@ export default function PricingModal({ onClose }: PricingModalProps) {
     if (balance === null) {
       return (
         <button disabled className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5">
-          <Loader2 size={13} className="animate-spin text-slate-400" />
+          <Loader2 size={13} className="animate-spin text-slate-404" />
           Đang tải số dư...
         </button>
       );
@@ -168,7 +160,7 @@ export default function PricingModal({ onClose }: PricingModalProps) {
         <button
           onClick={() => handleUpgradeWithBalance(packageType)}
           disabled={loading !== null}
-          className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all duration-200 flex items-center justify-center gap-1.5 disabled:opacity-50 ${
+          className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all duration-205 flex items-center justify-center gap-1.5 disabled:opacity-50 ${
             isPrimary ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-100" : "bg-slate-900 hover:bg-slate-800 text-white"
           }`}
         >
@@ -186,9 +178,9 @@ export default function PricingModal({ onClose }: PricingModalProps) {
       <button
         onClick={() => setShowConfirmDeposit({ show: true, amount: price })}
         disabled={loading !== null}
-        className="w-full py-2 rounded-xl border bg-slate-200/20 hover:bg-slate-200/35 border-slate-300/30 text-slate-600 hover:text-slate-800 transition-all duration-200 flex items-center justify-center gap-2 hover:shadow-sm"
+        className="w-full py-2 rounded-xl border bg-slate-200/20 hover:bg-slate-200/35 border-slate-300/30 text-slate-650 hover:text-slate-850 transition-all duration-200 flex items-center justify-center gap-2 hover:shadow-sm"
       >
-        <Wallet size={14} className="shrink-0 text-slate-400" />
+        <Wallet size={14} className="shrink-0 text-slate-404" />
         <div className="flex flex-col items-center text-center">
           <span className="font-bold text-xs">{label}</span>
           <span className="text-[9px] font-medium mt-0.5 text-slate-500">Số dư ví không đủ</span>
@@ -203,11 +195,11 @@ export default function PricingModal({ onClose }: PricingModalProps) {
       onClick={onClose}
     >
       <div
-        className="relative bg-white text-slate-800 border border-slate-100 rounded-3xl w-full max-w-4xl p-6 md:p-8 shadow-xl select-none animate-[scaleIn_0.2s_ease-out] max-h-[90vh] overflow-y-auto"
+        className="relative bg-white text-slate-800 border border-slate-100 rounded-3xl w-full max-w-3xl p-6 md:p-8 shadow-xl select-none animate-[scaleIn_0.2s_ease-out] max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 border border-slate-150 transition-colors z-10">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-slate-55 hover:bg-slate-100 text-slate-400 hover:text-slate-700 border border-slate-150 transition-colors z-10">
           <X size={16} />
         </button>
 
@@ -215,12 +207,12 @@ export default function PricingModal({ onClose }: PricingModalProps) {
         <div className="text-center max-w-xl mx-auto mb-6">
           <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full mb-2.5">
             <Sparkles size={11} className="text-amber-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-slate-600">Chọn gói phù hợp với bạn</span>
+            <span className="text-[10px] font-bold text-slate-650">Chọn gói phù hợp với bạn</span>
             {isStudentApproved && (
               <>
                 <span className="w-1 h-1 bg-slate-300 rounded-full" />
                 <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-                  <ShieldCheck size={11} className="text-emerald-500" />
+                  <ShieldCheck size={11} className="text-emerald-505" />
                   Sinh viên (-30%)
                 </span>
               </>
@@ -242,7 +234,7 @@ export default function PricingModal({ onClose }: PricingModalProps) {
               <p className="text-xs font-bold text-slate-800">
                 Bạn đang sở hữu gói {activePlan.type === "pro" ? "PRO" : "PLUS"}
               </p>
-              <p className="text-[10px] text-slate-500 mt-0.5">
+              <p className="text-[10px] text-slate-505 mt-0.5">
                 Thời gian còn lại: <span className="font-semibold text-indigo-600">{getRemainingTimeString(activePlan.expiration)}</span> (hết hạn ngày {activePlan.expiration.toLocaleDateString("vi-VN")})
               </p>
             </div>
@@ -251,12 +243,12 @@ export default function PricingModal({ onClose }: PricingModalProps) {
 
         {error && (
           <div className="max-w-md mx-auto mb-4 bg-red-50 border border-red-150 p-2.5 rounded-xl text-center">
-            <p className="text-red-600 text-xs font-semibold">{error}</p>
+            <p className="text-red-650 text-xs font-semibold">{error}</p>
           </div>
         )}
 
-        {/* 3-column Pricing Grid */}
-        <div className="grid md:grid-cols-3 gap-4 items-stretch mb-6">
+        {/* 2-column Pricing Grid */}
+        <div className="grid md:grid-cols-2 gap-6 items-stretch mb-6 max-w-2xl mx-auto">
 
           {/* PLUS Monthly */}
           <div className="bg-slate-50 border border-slate-150 rounded-2xl p-5 flex flex-col hover:shadow-sm transition-all duration-300 relative overflow-hidden">
@@ -281,8 +273,12 @@ export default function PricingModal({ onClose }: PricingModalProps) {
             </div>
             <div className="space-y-2 mb-5 flex-1">
               {plusFeatures.map((feat, idx) => (
-                <div key={idx} className="flex gap-2 items-center text-xs text-slate-600">
-                  <Check size={13} className="text-amber-500 flex-shrink-0" />
+                <div key={idx} className="flex gap-2 items-center text-xs text-slate-600 font-medium">
+                  {feat.includes("20 câu hỏi") ? (
+                    <MessageCircle size={13} className="text-amber-500 flex-shrink-0" />
+                  ) : (
+                    <Check size={13} className="text-amber-500 flex-shrink-0" />
+                  )}
                   <span>{feat}</span>
                 </div>
               ))}
@@ -320,7 +316,11 @@ export default function PricingModal({ onClose }: PricingModalProps) {
             <div className="space-y-2 mb-5 flex-1">
               {proFeatures.map((feat, idx) => (
                 <div key={idx} className="flex gap-2 items-center text-xs text-slate-700">
-                  <Check size={13} className="text-indigo-600 flex-shrink-0" />
+                  {feat.includes("Không giới hạn") ? (
+                    <Sparkles size={13} className="text-indigo-600 flex-shrink-0 animate-pulse" />
+                  ) : (
+                    <Check size={13} className="text-indigo-600 flex-shrink-0" />
+                  )}
                   <span className="font-semibold text-slate-900">{feat}</span>
                 </div>
               ))}
@@ -330,44 +330,6 @@ export default function PricingModal({ onClose }: PricingModalProps) {
             </div>
           </div>
 
-          {/* PRO Yearly */}
-          <div className="bg-slate-50 border border-slate-150 rounded-2xl p-5 flex flex-col hover:shadow-sm transition-all duration-300 relative overflow-hidden">
-            {isStudentApproved && (
-              <div className="absolute top-2 right-2 bg-emerald-50 text-emerald-600 border border-emerald-150 text-[8px] font-bold px-1.5 py-0.5 rounded">
-                SV -30%
-              </div>
-            )}
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-1">
-                  Pro Năm
-                  <span className="text-[8px] bg-indigo-100 border border-indigo-200 text-indigo-600 px-1.5 py-0.5 rounded-full font-bold">
-                    {isStudentApproved ? "-51%" : "-30%"}
-                  </span>
-                </h3>
-                <p className="text-slate-400 text-[9px] mt-0.5">Tiết kiệm nhất</p>
-              </div>
-              <div className="p-1.5 bg-white rounded-xl border border-slate-200">
-                <Zap size={14} className="text-indigo-500" />
-              </div>
-            </div>
-            <div className="mb-3 flex items-baseline gap-1">
-              <span className="text-2xl font-extrabold text-slate-900">{proYearlyPrice.toLocaleString("vi-VN")}đ</span>
-              <span className="text-slate-400 text-xs">/ năm</span>
-              {isStudentApproved && <span className="text-[10px] text-slate-400 line-through ml-1.5">999.000đ</span>}
-            </div>
-            <div className="space-y-2 mb-5 flex-1">
-              {proFeatures.map((feat, idx) => (
-                <div key={idx} className="flex gap-2 items-center text-xs text-slate-600">
-                  <Check size={13} className="text-indigo-600 flex-shrink-0" />
-                  <span>{feat}</span>
-                </div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              {renderUpgradeButton("year", proYearlyPrice, "Nâng cấp Pro Năm", false)}
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -397,13 +359,13 @@ export default function PricingModal({ onClose }: PricingModalProps) {
               <AlertCircle size={24} />
             </div>
             <h3 className="text-base font-extrabold text-slate-900 mb-2">Số dư không đủ</h3>
-            <p className="text-slate-500 text-xs leading-relaxed mb-6">
+            <p className="text-slate-505 text-xs leading-relaxed mb-6">
               Bạn không đủ tiền để mua gói này, có tiếp tục nạp tiền không?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowConfirmDeposit({ show: false, amount: 0 })}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-bold text-xs transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-505 hover:bg-slate-50 hover:text-slate-800 font-bold text-xs transition-colors"
               >
                 Hủy
               </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Course, CourseProgress, Lesson, LessonWithProgress } from "@/lib/types";
-import { CheckCircle2, Clock, X } from "lucide-react";
+import { CheckCircle2, Clock, Lock, X } from "lucide-react";
 import CourseProgressDisplay from "./CourseProgress";
 
 interface Props {
@@ -99,12 +99,14 @@ export default function LessonSidebar({
                   className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5 ${
                     isCompleted
                       ? "bg-green-500 text-white"
+                      : isLocked
+                      ? "bg-slate-300 text-slate-500"
                       : isActive
                       ? "bg-orange-500 text-white"
                       : "bg-slate-100 text-slate-500"
                   }`}
                 >
-                  {isCompleted ? <CheckCircle2 size={14} /> : idx + 1}
+                  {isCompleted ? <CheckCircle2 size={14} /> : isLocked ? <Lock size={12} /> : idx + 1}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -117,6 +119,8 @@ export default function LessonSidebar({
                     </span>
                     {isCompleted ? (
                       <span className="text-xs text-green-600 font-semibold">Hoàn thành</span>
+                    ) : isLocked ? (
+                      <span className="text-xs text-slate-400 font-medium">🔒 Chưa mở khóa</span>
                     ) : isFree ? (
                       <span className="text-xs text-green-600 font-medium">Miễn phí</span>
                     ) : null}
