@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Loader2, Menu, MoreVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Menu, MoreVertical, Lock, Zap } from "lucide-react";
 import LessonContent from "@/components/course/LessonContent";
 import LessonSidebar from "@/components/course/LessonSidebar";
 import { coursesApi, enrollmentsApi, lessonsApi, paymentApi } from "@/lib/api";
 import { getUser, isLoggedIn } from "@/lib/auth";
 import { Course, Lesson, LessonWithProgress } from "@/lib/types";
 import { useLessonProgress } from "@/lib/useLessonProgress";
+import { fetchUserActivePlan } from "@/lib/subscription";
+import PricingModal from "@/components/payment/PricingModal";
 
 type CourseLesson = Lesson | LessonWithProgress;
 
@@ -32,6 +34,8 @@ export default function CoursePage() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<"desc" | "qa" | "author">("desc");
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isPricingOpen, setIsPricingOpen] = useState(false);
+  const [activePlan, setActivePlan] = useState<"FREE" | "PLUS" | "PRO">("FREE");
   const { courseProgress, progressLoading, loadCourseProgress } = useLessonProgress(id);
 
   useEffect(() => {
@@ -54,14 +58,25 @@ export default function CoursePage() {
         }
 
         try {
+          const plan = await fetchUserActivePlan(user.id);
+          setActivePlan(plan);
+
           const enrollments = await enrollmentsApi.getByUser(user.id);
           const enrolled = enrollments.some((enrollment) => enrollment.courseId === id);
+
+          const isStaff = user.role === "Admin" || user.role === "Instructor" || user.role === "Manager";
+          const hasAccess =
+            isStaff ||
+            nextCourse.level === "Beginner" ||
+            nextCourse.price === 0 ||
+            (nextCourse.level === "Intermediate" && (plan === "PLUS" || plan === "PRO")) ||
+            (nextCourse.level === "Advanced" && plan === "PRO");
 
           if (enrolled) {
             setIsEnrolled(true);
             loadCourseProgress(id);
-          } else if (nextCourse.level === "Beginner" || nextCourse.price === 0) {
-            // Auto-enroll for free courses
+          } else if (hasAccess) {
+            // Auto-enroll since the user has active subscription or it's a free course
             try {
               await enrollmentsApi.enroll(user.id, id);
             } catch {
@@ -298,29 +313,87 @@ export default function CoursePage() {
               </div>
             )
           ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="flex flex-col items-center justify-center h-full gap-4 px-6 max-w-md mx-auto">
               <div className="text-center">
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-sm animate-bounce">
+                  <Lock className="w-6 h-6" />
+                </div>
                 <h2 className="text-xl font-bold text-slate-800 mb-2">{course.title}</h2>
-                <p className="text-slate-500 text-sm mb-6">
-                  {course.price > 0 ? "Mua khóa học để bắt đầu học" : "Đăng ký khóa học để bắt đầu học"}
-                </p>
-                <button
-                  onClick={handleEnroll}
-                  disabled={lessonLoading}
-                  className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 mx-auto disabled:opacity-60"
-                >
-                  {lessonLoading && <Loader2 size={14} className="animate-spin" />}
-                  {!isLoggedIn()
-                    ? "Đăng nhập để học"
-                    : course.price > 0
-                      ? `Mua khóa học - ${course.price.toLocaleString("vi-VN")} VND`
-                      : "Bắt đầu học ngay"}
-                </button>
+                
+                {!isLoggedIn() ? (
+                  <>
+                    <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                      Đăng nhập tài khoản để tham gia khóa học này.
+                    </p>
+                    <button
+                      onClick={handleEnroll}
+                      disabled={lessonLoading}
+                      className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 mx-auto disabled:opacity-60"
+                    >
+                      {lessonLoading && <Loader2 size={14} className="animate-spin" />}
+                      Đăng nhập để học
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                      {course.level === "Intermediate" 
+                        ? "Khóa học này yêu cầu tài khoản của bạn đạt xếp hạng PLUS hoặc PRO. Vui lòng nâng cấp gói thành viên để tiếp tục." 
+                        : "Khóa học này yêu cầu tài khoản của bạn đạt xếp hạng PRO. Vui lòng nâng cấp gói thành viên để tiếp tục."
+                      }
+                    </p>
+                    <button
+                      onClick={() => setIsPricingOpen(true)}
+                      className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:opacity-95 transition-opacity flex items-center justify-center gap-2 mx-auto shadow-md"
+                    >
+                      <Zap size={16} fill="white" />
+                      Nâng cấp tài khoản ngay
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
+      {isPricingOpen && (
+        <PricingModal 
+          onClose={async () => {
+            setIsPricingOpen(false);
+            // Recheck enrollments after closing pricing modal
+            const user = getUser();
+            if (user && course) {
+              try {
+                const plan = await fetchUserActivePlan(user.id);
+                setActivePlan(plan);
+                const enrollments = await enrollmentsApi.getByUser(user.id);
+                const enrolled = enrollments.some((enrollment) => enrollment.courseId === id);
+                
+                const isStaff = user.role === "Admin" || user.role === "Instructor" || user.role === "Manager";
+                const hasAccess =
+                  isStaff ||
+                  course.level === "Beginner" ||
+                  course.price === 0 ||
+                  (course.level === "Intermediate" && (plan === "PLUS" || plan === "PRO")) ||
+                  (course.level === "Advanced" && plan === "PRO");
+
+                if (enrolled) {
+                  setIsEnrolled(true);
+                  loadCourseProgress(id);
+                } else if (hasAccess) {
+                  try {
+                    await enrollmentsApi.enroll(user.id, id);
+                  } catch {}
+                  setIsEnrolled(true);
+                  loadCourseProgress(id);
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          }} 
+        />
+      )}
     </div>
   );
 }

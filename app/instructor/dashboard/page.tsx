@@ -451,9 +451,9 @@ function InstructorDashboardContent() {
                     value={courseFormData.level}
                     onChange={(e) => setCourseFormData({...courseFormData, level: e.target.value as "Beginner" | "Intermediate" | "Advanced"})}
                   >
-                    <option value="Beginner">Beginner</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Advanced">Advanced</option>
+                    <option value="Beginner">Free</option>
+                    <option value="Intermediate">Plus</option>
+                    <option value="Advanced">Pro</option>
                   </select>
                 </div>
               </div>

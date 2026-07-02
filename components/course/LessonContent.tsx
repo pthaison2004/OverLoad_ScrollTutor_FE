@@ -26,158 +26,271 @@ interface CheckpointData {
 }
 
 interface CheckpointOverlayProps {
-  question: string;
-  correctAnswer: string;
-  onSolve: () => void;
+  checkpoints: CheckpointData[];
+  completedCheckpoints: number[];
+  onSolveAll: (solvedIndexes: number[]) => void;
 }
 
-function CheckpointOverlay({ question, correctAnswer, onSolve }: CheckpointOverlayProps) {
-  const [value, setValue] = useState("");
-  const [isError, setIsError] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+function CheckpointOverlay({ checkpoints, completedCheckpoints, onSolveAll }: CheckpointOverlayProps) {
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [errors, setErrors] = useState<Record<number, boolean>>({});
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+
+  // Decode HTML helper
+  const decodeHtml = (html: string) => {
+    if (typeof window === "undefined") return html;
+    const txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+  };
+
+  // Process checkpoint helper
+  const processCheckpoint = (cp: CheckpointData) => {
+    const decoded = decodeHtml(cp.question);
+    let desc = "";
+    let code = decoded;
+    const colonIdx = decoded.indexOf(":");
+    if (colonIdx !== -1) {
+      desc = decoded.substring(0, colonIdx + 1).trim();
+      code = decoded.substring(colonIdx + 1).trim();
+    }
+    const hasBlank = /_{3,}/.test(code);
+    const parts = hasBlank ? code.split(/_{3,}/) : [];
+    const prefix = parts[0] ?? "";
+    const suffix = parts[1] ?? "";
+    return { descriptionText: desc, codeLine: code, hasBlank, prefix, suffix };
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (value.trim().toLowerCase() === correctAnswer.trim().toLowerCase()) {
-      setIsError(false);
-      onSolve();
-    } else {
-      setIsError(true);
+    let allValid = true;
+    const newErrors: Record<number, boolean> = {};
+    const solvedThisTime: number[] = [];
+
+    checkpoints.forEach(cp => {
+      const isCompleted = completedCheckpoints.includes(cp.stepIndex);
+      if (isCompleted) return;
+
+      const userAns = answers[cp.stepIndex] ?? "";
+      const isCorrect = userAns.trim().toLowerCase() === cp.correctAnswer.trim().toLowerCase();
+      if (isCorrect) {
+        newErrors[cp.stepIndex] = false;
+        solvedThisTime.push(cp.stepIndex);
+      } else {
+        newErrors[cp.stepIndex] = true;
+        allValid = false;
+      }
+    });
+
+    setErrors(newErrors);
+    if (allValid) {
+      onSolveAll(solvedThisTime);
     }
   };
 
-  const hasBlank = /_{3,}/.test(question);
-  const lines = hasBlank ? question.split("\n") : [];
+  const renderHighlightedCode = (text: string) => {
+    const tokens = text.split(/(\s+|\b|[{}\[\]()<>:;.,&|=+\-*\/%?]+)/g);
+    return tokens.map((part, idx) => {
+      if (!part) return null;
+      const isKw = /^(builder|Services|var|const|let|function|class|public|private|readonly|return|await|async|new|null|true|false|void|this|using|override|protected|interface|enum|static|abstract)$/i.test(part);
+      const isSqlKw = /^(SELECT|FROM|WHERE|ORDER|BY|CREATE|TABLE|PRIMARY|KEY|LIKE|OFFSET|FETCH|ROWS|ONLY|INNER|LEFT|JOIN|ON|GROUP|NOT|IN|INSERT|UPDATE|DELETE|AND|OR|AS|INTO|VALUES|SET|DISTINCT|COUNT|HAVING)$/i.test(part);
+      const isType = /^[A-Z][a-zA-Z0-9]*$/.test(part) && !isSqlKw;
+      const isNum = /^\d+$/.test(part);
+      if (isKw) return <span key={idx} style={{ color: "#c678dd" }}>{part}</span>;
+      if (isSqlKw) return <span key={idx} style={{ color: "#61afef", fontWeight: 700 }}>{part}</span>;
+      if (isType) return <span key={idx} style={{ color: "#e5c07b" }}>{part}</span>;
+      if (isNum) return <span key={idx} style={{ color: "#d19a66" }}>{part}</span>;
+      if (/^[{}()<>\[\]]$/.test(part)) return <span key={idx} style={{ color: "#abb2bf" }}>{part}</span>;
+      if (/^[.;,=+\-*\/%?:&|]+$/.test(part)) return <span key={idx} style={{ color: "#56b6c2" }}>{part}</span>;
+      if (/^".*?"$/.test(part) || /^'.*?'$/.test(part)) return <span key={idx} style={{ color: "#98c379" }}>{part}</span>;
+      return <span key={idx} style={{ color: "#abb2bf" }}>{part}</span>;
+    });
+  };
 
-  if (hasBlank) {
-    return (
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md z-[100] flex items-center justify-center p-6 select-none">
-        <form onSubmit={handleSubmit} className="bg-[#0f172a] text-[#f8fafc] border border-slate-800 p-6 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-full flex items-center gap-1.5 mb-4 shrink-0">
-            <div className="w-3 h-3 rounded-full bg-[#ef4444]" />
-            <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
-            <div className="w-3 h-3 rounded-full bg-[#10b981]" />
-            <span className="text-slate-500 text-xs font-mono ml-2">challenge_exercise.css</span>
-          </div>
-
-          <div className="bg-[#0b0f19] w-full p-5 rounded-xl border border-slate-900 font-mono text-sm text-left mb-5 relative overflow-hidden leading-relaxed">
-            {lines.map((line, idx) => {
-              const lineHasBlank = /_{3,}/.test(line);
-              if (lineHasBlank) {
-                const parts = line.split(/_{3,}/);
-                const prefix = parts[0] ?? "";
-                const suffix = parts[1] ?? "";
-                return (
-                  <div key={idx} className="flex items-center flex-wrap min-h-[24px]">
-                    <span className="text-slate-600 mr-4 select-none w-5 text-right shrink-0">{idx + 1}</span>
-                    <span className="text-blue-400" style={{ whiteSpace: "pre" }}>{prefix}</span>
-                    <span style={{ display: "inline-grid", alignItems: "center", position: "relative" }} className="mx-1">
-                      <span style={{ gridArea: "1 / 1", visibility: "hidden", whiteSpace: "pre" }} className="px-2 py-0.5 border border-transparent font-mono text-sm">
-                        {value.length >= 3 ? value : value + " ".repeat(3 - value.length)}
-                      </span>
-                      <input
-                        type="text"
-                        value={value}
-                        onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
-                        onChange={(e) => {
-                          setValue(e.target.value);
-                          setIsError(false);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleSubmit(e);
-                          }
-                        }}
-                        className={`w-full px-2 py-0.5 bg-[#1e293b] border rounded font-mono text-sm text-center outline-none transition-all ${
-                          isError
-                            ? "border-red-500 text-red-400 focus:ring-2 focus:ring-red-500/20"
-                            : isFocused
-                            ? "border-blue-500 text-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                            : "border-slate-700 text-slate-200"
-                        }`}
-                        style={{ gridArea: "1 / 1" }}
-                        placeholder="???"
-                        autoFocus
-                      />
-                    </span>
-                    <span className="text-emerald-400" style={{ whiteSpace: "pre" }}>{suffix}</span>
-                  </div>
-                );
-              } else {
-                return (
-                  <div key={idx} className="flex items-center flex-wrap min-h-[24px]">
-                    <span className="text-slate-600 mr-4 select-none w-5 text-right shrink-0">{idx + 1}</span>
-                    <span className="text-slate-400" style={{ whiteSpace: "pre" }}>{line}</span>
-                  </div>
-                );
-              }
-            })}
-          </div>
-
-          {isError && (
-            <p className="text-red-400 text-xs font-semibold mb-4 flex items-center gap-1.5">
-              ⚠️ Mã nguồn chưa chính xác. Hãy thử lại!
-            </p>
-          )}
-
-          <div className="w-full flex gap-3">
-            <button
-              type="submit"
-              className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/10 active:scale-[0.98] transition-all"
-            >
-              Kiểm tra đáp án
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
+  const isAnyInputEmpty = checkpoints.some(cp => {
+    if (completedCheckpoints.includes(cp.stepIndex)) return false;
+    return !(answers[cp.stepIndex] ?? "").trim();
+  });
 
   return (
-    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
-      <div className="bg-white/95 border border-white/60 p-8 rounded-3xl max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
-        <div className="bg-blue-50 text-blue-600 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider mb-4">
-          Thử thách Q&A
+    <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px] z-[100] flex items-center justify-center p-6 select-none animate-in fade-in duration-300">
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-2xl overflow-hidden w-full max-w-lg max-h-full flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-indigo-500/50 animate-in zoom-in-95 duration-200"
+        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ background: "#21252b" }}>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full animate-pulse" style={{ background: "#ef4444" }} />
+            <span className="w-3 h-3 rounded-full" style={{ background: "#f59e0b" }} />
+            <span className="w-3 h-3 rounded-full" style={{ background: "#10b981" }} />
+            <span style={{ color: "#818cf8", fontSize: 12, fontWeight: 900, letterSpacing: "0.15em", textTransform: "uppercase", marginLeft: 10 }}>
+              ⚡ THỬ THÁCH CUỐI BÀI HỌC
+            </span>
+          </div>
         </div>
-        <h3 className="text-slate-800 font-bold text-lg mb-6 leading-snug">
-          {question}
-        </h3>
-        <form onSubmit={handleSubmit} className="w-full">
-          <input
-            type="text"
-            value={value}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            onChange={(e) => {
-              setValue(e.target.value);
-              setIsError(false);
-            }}
-            placeholder="Nhập câu trả lời của bạn..."
-            className={`w-full px-4 py-3 bg-slate-50 border-2 rounded-xl text-sm focus:outline-none transition-all ${
-              isError
-                ? "border-red-500 focus:ring-4 focus:ring-red-100"
-                : isFocused
-                ? "border-blue-500 focus:ring-4 focus:ring-blue-100"
-                : "border-slate-200 focus:border-blue-500"
-            }`}
-            autoFocus
-          />
-          {isError && (
-            <p className="text-red-500 text-xs font-semibold mt-2 flex items-center justify-center gap-1">
-              ⚠️ Câu trả lời chưa chính xác. Hãy thử lại!
-            </p>
-          )}
+
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ background: "#1e1e24" }}>
+          <p className="text-slate-400 text-xs leading-relaxed border-b border-slate-800 pb-3">
+            Để hoàn thành bài học này, bạn cần vượt qua các thử thách nhanh dưới đây. Đáp án đã được ẩn khỏi trình soạn thảo code để đảm bảo tính thử thách.
+          </p>
+
+          {checkpoints.map((cp, idx) => {
+            const isCompleted = completedCheckpoints.includes(cp.stepIndex);
+            const { descriptionText, hasBlank, prefix, suffix } = processCheckpoint(cp);
+            const userVal = answers[cp.stepIndex] ?? "";
+            const isError = errors[cp.stepIndex] ?? false;
+            const isFocused = focusedIndex === cp.stepIndex;
+
+            return (
+              <div key={cp.stepIndex} className="space-y-2.5">
+                {/* Challenge Number Header */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-slate-800 text-slate-400">
+                    Câu hỏi {idx + 1}
+                  </span>
+                  {isCompleted && (
+                    <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                      ✅ Đã hoàn thành
+                    </span>
+                  )}
+                </div>
+
+                <div className="rounded-xl overflow-hidden border border-slate-800">
+                  {/* Question Description */}
+                  {descriptionText && (
+                    <div style={{ background: "#2c313c" }} className="px-4 py-2.5 border-b border-slate-800">
+                      <p style={{ color: "#abb2bf", fontSize: 13, fontWeight: 500, lineHeight: 1.5 }}>{descriptionText}</p>
+                    </div>
+                  )}
+
+                  {/* Code Editor Box */}
+                  {isCompleted ? (
+                    <div className="flex" style={{ background: "#282c34" }}>
+                      <div className="flex flex-col items-end px-2 py-3 select-none shrink-0" style={{ background: "#21252b", color: "#636d83", fontSize: 13, lineHeight: "1.6", minWidth: 36 }}>
+                        <span>1</span>
+                      </div>
+                      <div className="flex items-center flex-wrap px-4 py-3 text-slate-300" style={{ fontSize: 13, lineHeight: "1.6" }}>
+                        {hasBlank ? (
+                          <>
+                            {renderHighlightedCode(prefix)}
+                            <span style={{ background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 4, padding: "1px 6px", fontWeight: 600, margin: "0 4px" }}>
+                              {cp.correctAnswer}
+                            </span>
+                            {renderHighlightedCode(suffix)}
+                          </>
+                        ) : (
+                          <span style={{ color: "#10b981" }}>{cp.correctAnswer}</span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex" style={{ background: "#282c34" }}>
+                      <div className="flex flex-col items-end px-2 py-3 select-none shrink-0" style={{ background: "#21252b", color: "#636d83", fontSize: 13, lineHeight: "1.6", minWidth: 36 }}>
+                        <span>1</span>
+                      </div>
+                      <div className="flex items-center flex-wrap px-4 py-3 text-slate-300" style={{ fontSize: 13, lineHeight: "1.6" }}>
+                        {hasBlank ? (
+                          <>
+                            {renderHighlightedCode(prefix)}
+                            <span style={{ display: "inline-grid", alignItems: "center", position: "relative", margin: "0 3px" }}>
+                              <span style={{ gridArea: "1 / 1", visibility: "hidden", whiteSpace: "pre", padding: "2px 8px", fontSize: 13 }}>
+                                {userVal.length >= 3 ? userVal : userVal + " ".repeat(3 - userVal.length)}
+                              </span>
+                              <input
+                                type="text"
+                                value={userVal}
+                                onFocus={() => setFocusedIndex(cp.stepIndex)}
+                                onBlur={() => setFocusedIndex(null)}
+                                onChange={(e) => {
+                                  setAnswers(prev => ({ ...prev, [cp.stepIndex]: e.target.value }));
+                                  setErrors(prev => ({ ...prev, [cp.stepIndex]: false }));
+                                }}
+                                className="outline-none"
+                                style={{
+                                  gridArea: "1 / 1",
+                                  background: isError ? "rgba(239,68,68,0.15)" : isFocused ? "rgba(99,102,241,0.15)" : "#3e4451",
+                                  border: `1.5px solid ${isError ? "#ef4444" : isFocused ? "#818cf8" : "#4b5563"}`,
+                                  borderRadius: 4,
+                                  color: isError ? "#fca5a5" : "#e5e7eb",
+                                  textAlign: "center",
+                                  fontSize: 13,
+                                  fontFamily: "inherit",
+                                  padding: "2px 8px",
+                                  transition: "all 0.15s",
+                                }}
+                                placeholder="???"
+                              />
+                            </span>
+                            {renderHighlightedCode(suffix)}
+                          </>
+                        ) : (
+                          <input
+                            type="text"
+                            value={userVal}
+                            onFocus={() => setFocusedIndex(cp.stepIndex)}
+                            onBlur={() => setFocusedIndex(null)}
+                            onChange={(e) => {
+                              setAnswers(prev => ({ ...prev, [cp.stepIndex]: e.target.value }));
+                              setErrors(prev => ({ ...prev, [cp.stepIndex]: false }));
+                            }}
+                            placeholder="Nhập câu trả lời..."
+                            className="outline-none w-full"
+                            style={{
+                              background: "#3e4451",
+                              border: `1.5px solid ${isError ? "#ef4444" : isFocused ? "#818cf8" : "#4b5563"}`,
+                              borderRadius: 6,
+                              color: "#e5e7eb",
+                              fontSize: 13,
+                              fontFamily: "inherit",
+                              padding: "6px 12px",
+                              transition: "all 0.15s",
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* Error status info */}
+                {isError && (
+                  <span style={{ color: "#ef4444", fontSize: 11, fontWeight: 600 }}>
+                    ❌ Câu trả lời chưa chính xác, vui lòng kiểm tra lại.
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ background: "#21252b", borderTop: "1px solid #3e4451" }}>
+          <span style={{ color: "#636d83", fontSize: 11 }}>
+            Vui lòng giải đúng tất cả câu hỏi để hoàn thành.
+          </span>
           <button
             type="submit"
-            className="w-full mt-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all"
+            disabled={isAnyInputEmpty}
+            style={{
+              background: isAnyInputEmpty ? "#3e4451" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: isAnyInputEmpty ? "#636d83" : "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "8px 22px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: isAnyInputEmpty ? "not-allowed" : "pointer",
+              opacity: isAnyInputEmpty ? 0.6 : 1,
+              transition: "all 0.15s",
+              fontFamily: "inherit",
+            }}
           >
-            Kiểm tra đáp án
+            Kiểm tra & Hoàn thành 🚀
           </button>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 }
@@ -232,9 +345,8 @@ export default function LessonContent({
 
   // Scroll tracking and locking states
   const [scrollPercentage, setScrollPercentage] = useState(0);
-  const [isLocked, setIsLocked] = useState(false);
   const [completedCheckpoints, setCompletedCheckpoints] = useState<number[]>([]);
-  const [activeCheckpoint, setActiveCheckpoint] = useState<CheckpointData | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
 
   const lockPositionRef = useRef<number | null>(null);
   const lastSaveTimeRef = useRef(0);
@@ -285,15 +397,22 @@ export default function LessonContent({
   // Save progress helper
   const saveProgress = (percentage: number, completedCount: number, isFinished = false) => {
     if (!userId || !lesson.id) return;
-    // Skip if no auth token
     const token = typeof window !== "undefined" ? localStorage.getItem("ol_access_token") : null;
     if (!token) return;
+
+    // Check if there are any unsolved checkpoints
+    const hasUnsolved = checkpoints.some(cp => !completedCheckpoints.includes(cp.stepIndex));
+
+    // Capping percentage if there are unsolved checkpoints to prevent unlocking the next lesson
+    const finalPercentage = hasUnsolved ? Math.min(percentage, 95) : percentage;
+    const finalCompleted = !hasUnsolved && (isFinished || finalPercentage >= 98);
+
     progressApi.upsert({
       userId,
       lessonId: lesson.id,
-      lastScrollPercentage: percentage,
+      lastScrollPercentage: finalPercentage,
       unlockedCheckpointIndex: completedCount,
-      completed: isFinished || percentage >= 98,
+      completed: finalCompleted,
       lastPositionSeconds: 0,
       watchTimeSeconds: 0
     }).catch(() => { /* silently ignore */ });
@@ -386,14 +505,6 @@ export default function LessonContent({
 
   // Load step into editor
   function loadStep(stepIndex: number, code: string, scroll = true) {
-    // Check if the target step is locked behind an unsolved checkpoint
-    const hasUnsolvedCheckpointBefore = checkpoints.some(
-      cp => cp.stepIndex < stepIndex && !completedCheckpoints.includes(cp.stepIndex)
-    );
-    if (hasUnsolvedCheckpointBefore) {
-      return;
-    }
-
     setActiveStepIndex(stepIndex);
     setUserCode(code);
     setRunKey(k => k + 1);
@@ -409,6 +520,8 @@ export default function LessonContent({
       }
     }
   }
+
+
 
   // Scroll spy: update active step as user scrolls down the content
   useEffect(() => {
@@ -452,33 +565,30 @@ export default function LessonContent({
     };
   }, [lesson.id, allSteps, isLocked]);
 
-  // Checkpoint detection and locking
+  // Checkpoint detection and scroll locking (triggers at 99% scroll progress)
   useEffect(() => {
     if (isLocked) return;
 
-    const pendingCheckpoint = checkpoints.find(
-      cp => cp.stepIndex <= activeStepIndex && !completedCheckpoints.includes(cp.stepIndex)
-    );
+    // Check if there are any unsolved checkpoints
+    const hasUnsolved = checkpoints.some(cp => !completedCheckpoints.includes(cp.stepIndex));
 
-    if (pendingCheckpoint) {
+    if (hasUnsolved && scrollPercentage >= 98) {
       setIsLocked(true);
       if (leftScrollContainerRef.current) {
+        // Lock current scroll position
         lockPositionRef.current = leftScrollContainerRef.current.scrollTop;
       }
-      setActiveCheckpoint(pendingCheckpoint);
     }
-  }, [activeStepIndex, checkpoints, completedCheckpoints, isLocked]);
+  }, [scrollPercentage, checkpoints, completedCheckpoints, isLocked]);
 
-  const handleSolveCheckpoint = () => {
-    if (!activeCheckpoint) return;
-    const newCompleted = [...completedCheckpoints, activeCheckpoint.stepIndex];
-    setCompletedCheckpoints(newCompleted);
+  const handleSolveAllCheckpoints = (solvedIndexes: number[]) => {
+    setCompletedCheckpoints(prev => {
+      const newCompleted = Array.from(new Set([...prev, ...solvedIndexes]));
+      saveProgress(scrollPercentage, newCompleted.length);
+      return newCompleted;
+    });
     setIsLocked(false);
     lockPositionRef.current = null;
-    setActiveCheckpoint(null);
-
-    // Save progress immediately
-    saveProgress(scrollPercentage, newCompleted.length);
   };
 
   const handleScroll = () => {
@@ -555,10 +665,11 @@ export default function LessonContent({
   }, [lesson, markLessonComplete, onLessonCompleted]);
 
   useEffect(() => {
-    if (scrollPercentage >= 99 && !isCompleted && !isSavingProgress) {
+    const hasUnsolved = checkpoints.some(cp => !completedCheckpoints.includes(cp.stepIndex));
+    if (scrollPercentage >= 99 && !isCompleted && !isSavingProgress && !hasUnsolved) {
       handleMarkLessonComplete();
     }
-  }, [scrollPercentage, isCompleted, isSavingProgress, handleMarkLessonComplete]);
+  }, [scrollPercentage, isCompleted, isSavingProgress, handleMarkLessonComplete, checkpoints, completedCheckpoints]);
 
   useEffect(() => {
     // Use an effect that mounts once to avoid reattaching listeners during drag
@@ -847,11 +958,11 @@ export default function LessonContent({
                 </div>
               )}
               {/* Checkpoint Overlay */}
-              {isLocked && activeCheckpoint && (
+              {isLocked && (
                 <CheckpointOverlay
-                  question={activeCheckpoint.question}
-                  correctAnswer={activeCheckpoint.correctAnswer}
-                  onSolve={handleSolveCheckpoint}
+                  checkpoints={checkpoints}
+                  completedCheckpoints={completedCheckpoints}
+                  onSolveAll={handleSolveAllCheckpoints}
                 />
               )}
 
@@ -866,7 +977,20 @@ export default function LessonContent({
           />
 
           {/* Right: Code Editor + Preview (vertical split) */}
-          <div style={{ width: `${100 - leftWidth}%` }} className="overflow-hidden flex flex-col border-l border-slate-100">
+          <div style={{ width: `${100 - leftWidth}%` }} className="overflow-hidden flex flex-col border-l border-slate-100 relative">
+            {/* Lock overlay for editor to prevent cheating */}
+            {isLocked && (
+              <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md z-[999] flex flex-col items-center justify-center p-8 text-center select-none animate-in fade-in duration-300" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <span className="text-4xl mb-4">🔒</span>
+                <h3 className="text-white font-bold text-sm tracking-wider uppercase mb-2" style={{ color: "#818cf8" }}>
+                  Trình soạn thảo đã khóa
+                </h3>
+                <p className="text-slate-400 text-xs max-w-sm leading-relaxed">
+                  Vui lòng hoàn thành các thử thách nhanh ở cột lý thuyết bên trái để tiếp tục mở khóa và thực hành viết code.
+                </p>
+              </div>
+            )}
+
             {/* Top: Code Editor */}
             <div style={{ height: `${editorHeight}%` }} className="overflow-hidden flex flex-col border-b border-slate-100">
               <div className="flex items-center justify-between px-4 py-2 shrink-0 bg-white border-b border-slate-100">

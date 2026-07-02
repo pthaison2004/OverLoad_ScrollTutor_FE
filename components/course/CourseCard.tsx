@@ -87,20 +87,10 @@ export default function CourseCard({ course, showProgress = false }: Props) {
               </span>
             </div>
           ) : (
-            <>
-              <button className="w-full text-center py-1.5 rounded-xl border border-orange-200 text-orange-500 text-sm font-semibold hover:bg-orange-50 transition-colors">
-                Trả phí
-              </button>
-              <div className="flex gap-1 mt-2 justify-center">
-                {levelInfo.badge === "plus" && <span className="badge-plus">Plus</span>}
-                {levelInfo.badge === "pro" && (
-                  <>
-                    <span className="badge-plus">Plus</span>
-                    <span className="badge-pro">Pro</span>
-                  </>
-                )}
-              </div>
-            </>
+            <div className="flex justify-center mt-1">
+              {levelInfo.badge === "plus" && <span className="badge-plus">Gói Plus</span>}
+              {levelInfo.badge === "pro" && <span className="badge-pro">Gói Pro</span>}
+            </div>
           )}
         </div>
       </div>

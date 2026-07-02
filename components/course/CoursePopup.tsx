@@ -91,7 +91,7 @@ export default function CoursePopup({ course, onClose }: Props) {
           <div className="flex justify-between items-center mb-3">
             <span className={`badge-${levelInfo.badge} inline-block`}>{levelInfo.label}</span>
             <span className="text-sm font-bold text-blue-600">
-              {course.price > 0 ? `${course.price.toLocaleString("vi-VN")} VND` : "Miễn phí"}
+              {levelInfo.badge === "free" ? "Miễn phí" : ""}
             </span>
           </div>
 
@@ -114,12 +114,13 @@ export default function CoursePopup({ course, onClose }: Props) {
               Đóng
             </button>
             <button
-              onClick={handleEnroll}
-              disabled={loading}
-              className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              onClick={() => {
+                router.push(`/course/${course.id}`);
+                onClose();
+              }}
+              className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
             >
-              {loading && <Loader2 size={14} className="animate-spin" />}
-              {course.price > 0 ? "Mua khóa học" : "Vào học ngay"}
+              Xem khóa học
             </button>
           </div>
         </div>
