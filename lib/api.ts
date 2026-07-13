@@ -3,7 +3,8 @@ import {
   Course, CoursesQuery, PaginatedCourses, Lesson, CreateLessonRequest,
   Enrollment, EnrollmentDetail, UpdateProgressRequest, LessonProgress, CreateProgressRequest,
   RegisterRequest, Transaction, RevenueStats, CreatePaymentLinkRequest, CreateProPaymentLinkRequest,
-  CreateDepositLinkRequest, CourseProgress, UserCourse, LessonWithProgress
+  CreateDepositLinkRequest, CourseProgress, UserCourse, LessonWithProgress,
+  BugReport, CreateBugReportRequest, UpdateBugReportStatusRequest
 } from "./types";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://localhost:53483") + "/api";
@@ -71,6 +72,75 @@ async function tryRefreshToken(): Promise<string | null> {
   return refreshPromise;
 }
 
+// Helper to translate field-specific validation messages to Vietnamese
+function translateErrorMessage(msg: string, field: string): string {
+  const fieldMap: Record<string, string> = {
+    password: "Mật khẩu",
+    email: "Email",
+    fullname: "Họ và tên",
+    confirmpassword: "Xác nhận mật khẩu",
+    title: "Tiêu đề",
+    description: "Mô tả",
+    category: "Danh mục",
+    price: "Giá",
+    role: "Vai trò",
+    content: "Nội dung",
+    durationminutes: "Thời lượng",
+  };
+
+  const cleanField = fieldMap[field.toLowerCase()] || field;
+
+  if (msg.includes("minimum length of")) {
+    const match = msg.match(/minimum length of '(\d+)'/);
+    const minLen = match ? match[1] : "6";
+    return `${cleanField} phải có độ dài tối thiểu là ${minLen} ký tự.`;
+  }
+
+  if (msg.includes("field is required") || msg.includes("is required")) {
+    return `${cleanField} không được để trống.`;
+  }
+
+  if (msg.includes("is not a valid e-mail address")) {
+    return `Địa chỉ ${cleanField} không hợp lệ.`;
+  }
+
+  if (msg.includes("must be between")) {
+    const match = msg.match(/between ([\d.,]+) and ([\d.,]+)/);
+    if (match) {
+      return `${cleanField} phải nằm trong khoảng từ ${match[1]} đến ${match[2]}.`;
+    }
+  }
+
+  let translatedMsg = msg;
+  if (field && msg.toLowerCase().includes(field.toLowerCase())) {
+    const regex = new RegExp(field, "gi");
+    translatedMsg = translatedMsg.replace(regex, cleanField);
+  }
+
+  return translatedMsg;
+}
+
+// Helper to translate generic backend error strings to Vietnamese
+function translateGenericError(msg: string): string {
+  const translations: Record<string, string> = {
+    "email already exists": "Email này đã được sử dụng.",
+    "invalid credentials": "Email hoặc mật khẩu không chính xác.",
+    "invalid username or password": "Email hoặc mật khẩu không chính xác.",
+    "user not found": "Không tìm thấy người dùng.",
+    "course not found": "Không tìm thấy khóa học.",
+    "lesson not found": "Không tìm thấy bài học.",
+    "unauthorized": "Vui lòng đăng nhập để tiếp tục.",
+    "forbidden": "Bạn không có quyền thực hiện hành động này.",
+    "failed to refresh token": "Phiên làm việc hết hạn, vui lòng đăng nhập lại.",
+    "refresh failed": "Phiên làm việc hết hạn, vui lòng đăng nhập lại.",
+    "network request failed": "Không thể kết nối đến máy chủ, vui lòng kiểm tra mạng.",
+    "internal server error": "Có lỗi hệ thống xảy ra, vui lòng thử lại sau.",
+  };
+
+  const key = msg.toLowerCase().trim();
+  return translations[key] || msg;
+}
+
 // ─── Core fetch (có auto-retry sau refresh) ──────────────────────────────────
 async function request<T>(
   path: string,
@@ -94,7 +164,7 @@ async function request<T>(
     res = await fetch(url, { ...options, headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Network request failed";
-    throw new Error(`Cannot reach API ${url}: ${message}`);
+    throw new Error(`Cannot reach API ${url}: ${translateGenericError(message)}`);
   }
 
   // ✅ Nếu 401 và còn lần retry → thử refresh token rồi gọi lại
@@ -110,7 +180,46 @@ async function request<T>(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail ?? err?.message ?? `HTTP ${res.status}`);
+
+    // 1. If it has a list of error strings or key-value validation dictionary (like ASP.NET Core)
+    if (err?.errors) {
+      if (Array.isArray(err.errors)) {
+        if (err.errors.length > 0) {
+          throw new Error(err.errors.map((e: any) => translateGenericError(String(e))).join("\n"));
+        }
+      } else if (typeof err.errors === "object") {
+        const messages = Object.entries(err.errors)
+          .map(([field, msgs]) => {
+            const list = Array.isArray(msgs)
+              ? msgs.map((m: any) => translateErrorMessage(String(m), field)).join(", ")
+              : translateErrorMessage(String(msgs), field);
+            return list;
+          })
+          .filter(Boolean);
+        if (messages.length > 0) {
+          throw new Error(messages.join("\n"));
+        }
+      }
+    }
+
+    // 2. If it's a flat dictionary of errors (e.g. BadRequest(ModelState))
+    const keys = Object.keys(err).filter(k => k !== "status" && k !== "title" && k !== "traceId" && k !== "type");
+    if (keys.length > 0 && keys.every(k => Array.isArray(err[k]) || typeof err[k] === "string")) {
+      const messages = Object.entries(err)
+        .map(([field, msgs]) => {
+          const list = Array.isArray(msgs)
+            ? msgs.map((m: any) => translateErrorMessage(String(m), field)).join(", ")
+            : translateErrorMessage(String(msgs), field);
+          return list;
+        })
+        .filter(Boolean);
+      if (messages.length > 0) {
+        throw new Error(messages.join("\n"));
+      }
+    }
+
+    const errMsg = err?.detail ?? err?.message ?? err?.title ?? `HTTP ${res.status}`;
+    throw new Error(translateGenericError(errMsg));
   }
 
   // 204 No Content
@@ -265,6 +374,15 @@ export const enrollmentsApi = {
 
   delete: (id: number) =>
     request<void>(`/enrollments/${id}`, { method: "DELETE" }),
+
+  getAll: (params?: { page?: number; pageSize?: number; userId?: number; courseId?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+    if (params?.userId) qs.set("userId", String(params.userId));
+    if (params?.courseId) qs.set("courseId", String(params.courseId));
+    return request<{ data: EnrollmentDetail[]; pagination: { totalCount: number; page: number; pageSize: number; totalPages: number } }>("/enrollments?" + qs.toString());
+  },
 };
 
 // ─── Progress ────────────────────────────────────────────────────────────────
@@ -319,4 +437,45 @@ export const paymentApi = {
 
   getStats: () =>
     request<RevenueStats>("/payment/stats"),
+};
+
+// ─── Bug Reports ─────────────────────────────────────────────────────────────
+export const bugReportsApi = {
+  create: (body: CreateBugReportRequest) =>
+    request<BugReport>("/bug-reports", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getMy: () =>
+    request<BugReport[]>("/bug-reports/my"),
+
+  getByCourse: (courseId: number) =>
+    request<BugReport[]>("/bug-reports/course/" + courseId),
+
+  getAll: (params?: { page?: number; pageSize?: number; courseId?: number; status?: string; category?: string; searchTerm?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+    if (params?.courseId) qs.set("courseId", String(params.courseId));
+    if (params?.status) qs.set("status", params.status);
+    if (params?.category) qs.set("category", params.category);
+    if (params?.searchTerm) qs.set("searchTerm", params.searchTerm);
+    return request<{ data: BugReport[]; pagination: { totalCount: number; page: number; pageSize: number; totalPages: number } }>("/bug-reports?" + qs.toString());
+  },
+
+  updateStatus: (id: number, body: UpdateBugReportStatusRequest) =>
+    request<BugReport>(`/bug-reports/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: number) =>
+    request<boolean>(`/bug-reports/${id}`, { method: "DELETE" }),
+
+  uploadAttachment: (formData: FormData) =>
+    request<{ attachmentUrl: string; message: string }>("/bug-reports/upload-attachment", {
+      method: "POST",
+      body: formData,
+    }),
 };

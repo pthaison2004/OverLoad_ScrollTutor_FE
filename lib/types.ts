@@ -240,6 +240,43 @@ export interface LessonWithProgress {
   isLocked: boolean;
 }
 
+// ===== Bug Report =====
+export type BugReportStatus = "Open" | "InProgress" | "Resolved" | "Closed";
+
+export interface BugReport {
+  id: number;
+  userId: number;
+  userFullName: string;
+  userEmail: string;
+  courseId: number;
+  courseTitle: string;
+  lessonId: number | null;
+  lessonTitle: string | null;
+  title: string;
+  description: string;
+  status: BugReportStatus;
+  instructorNote: string | null;
+  adminNote: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  attachmentUrl?: string | null;
+}
+
+export interface CreateBugReportRequest {
+  courseId: number;
+  lessonId?: number | null;
+  title: string;
+  description: string;
+  attachmentUrl?: string | null;
+}
+
+export interface UpdateBugReportStatusRequest {
+  status: string;
+  instructorNote?: string | null;
+  adminNote?: string | null;
+}
+
 // ===== UI helpers (FE-only, not from BE) =====
 // Map BE level → UI display
 export const LEVEL_MAP: Record<string, { label: string; badge: "free" | "plus" | "pro" }> = {

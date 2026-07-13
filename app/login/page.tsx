@@ -16,6 +16,18 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      setError("Địa chỉ email không hợp lệ!");
+      return;
+    }
+
+    if (!form.password) {
+      setError("Mật khẩu không được để trống!");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await authApi.login({ email: form.email, password: form.password });

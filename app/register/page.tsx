@@ -18,6 +18,23 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!form.fullName.trim()) {
+      setError("Họ và tên không được để trống!");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      setError("Địa chỉ email không hợp lệ!");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("Mật khẩu phải chứa ít nhất 6 ký tự!");
+      return;
+    }
+
     if (form.password !== form.confirmPassword) {
       setError("Mật khẩu nhập lại không khớp!");
       return;

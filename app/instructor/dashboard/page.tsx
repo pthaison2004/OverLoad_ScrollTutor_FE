@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { coursesApi, paymentApi } from "@/lib/api";
-import { Course, RevenueStats } from "@/lib/types";
+import { coursesApi, bugReportsApi } from "@/lib/api";
+import { Course, BugReport, BugReportStatus } from "@/lib/types";
 import { 
-  Plus, Edit, Trash2, BookOpen, AlertCircle, RefreshCw, Layers, Sparkles, DollarSign, TrendingUp, History
+  Plus, Edit, Trash2, BookOpen, AlertCircle, RefreshCw, Layers, Sparkles, 
+  Bug, CheckCircle2, Clock, AlertTriangle, MessageSquare, Send
 } from "lucide-react";
 
 import { useMemo, Suspense } from "react";
@@ -28,9 +29,10 @@ function InstructorDashboardContent() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Stats states
-  const [stats, setStats] = useState<RevenueStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(true);
+  // Bug Reports states
+  const [bugReports, setBugReports] = useState<BugReport[]>([]);
+  const [loadingBugs, setLoadingBugs] = useState(true);
+  const [updatingBugId, setUpdatingBugId] = useState<number | null>(null);
 
   // Modals state
   const [courseModalOpen, setCourseModalOpen] = useState(false);
@@ -53,15 +55,31 @@ function InstructorDashboardContent() {
     isPublished: true
   });
 
+  // Fetch all bug reports for instructor's courses
+  const fetchAllBugReports = async (instructorCourses: Course[]) => {
+    setLoadingBugs(true);
+    try {
+      const promises = instructorCourses.map(c => bugReportsApi.getByCourse(c.id));
+      const results = await Promise.all(promises);
+      const allBugs = results.flat();
+      allBugs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setBugReports(allBugs);
+    } catch (err) {
+      console.error("Lỗi khi tải danh sách báo cáo lỗi:", err);
+    } finally {
+      setLoadingBugs(false);
+    }
+  };
+
   // Fetch all courses
   const fetchCourses = async () => {
     setLoadingCourses(true);
     setErrorMsg("");
     try {
       const res = await coursesApi.getAll({ pageSize: 100 });
-      // Filter out system courses (PRO upgrade, deposit) — they are not real instructor courses
-      const allCourses = res.items || [];
-      setCourses(allCourses.filter((c: Course) => c.category?.toLowerCase() !== "system"));
+      const allCourses = (res.items || []).filter((c: Course) => c.category?.toLowerCase() !== "system");
+      setCourses(allCourses);
+      await fetchAllBugReports(allCourses);
     } catch (err: any) {
       setErrorMsg(err.message || "Không thể tải danh sách khóa học.");
     } finally {
@@ -69,26 +87,20 @@ function InstructorDashboardContent() {
     }
   };
 
-  // Fetch stats
-  const [mounted, setMounted] = useState(false);
-  
-  const fetchStats = async () => {
-    setLoadingStats(true);
-    try {
-      const data = await paymentApi.getStats();
-      setStats(data);
-    } catch (err: any) {
-      console.error("Lỗi khi tải thống kê doanh thu:", err);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
-
   useEffect(() => {
-    setMounted(true);
     fetchCourses();
-    fetchStats();
   }, []);
+
+  // Calculate count of Open bugs per course
+  const openBugsCountPerCourse = useMemo(() => {
+    const counts: Record<number, number> = {};
+    bugReports.forEach(bug => {
+      if (bug.status === "Open" || bug.status === "InProgress") {
+        counts[bug.courseId] = (counts[bug.courseId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [bugReports]);
 
   // Set message helper
   const triggerSuccess = (msg: string) => {
@@ -130,6 +142,59 @@ function InstructorDashboardContent() {
     }
   };
 
+  // Update bug status
+  const handleUpdateBugStatus = async (bugId: number, currentStatus: string, nextStatus: BugReportStatus, defaultNote = "") => {
+    const note = prompt(
+      `Nhập ghi chú hoặc phản hồi xử lý lỗi (tùy chọn):`,
+      defaultNote || bugReports.find(b => b.id === bugId)?.instructorNote || ""
+    );
+    if (note === null) return; // Cancelled
+
+    setUpdatingBugId(bugId);
+    setErrorMsg("");
+    try {
+      await bugReportsApi.updateStatus(bugId, {
+        status: nextStatus,
+        instructorNote: note.trim() || undefined
+      });
+      triggerSuccess("Đã cập nhật trạng thái báo cáo lỗi.");
+      // Refresh bugs
+      fetchAllBugReports(courses);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Cập nhật trạng thái lỗi thất bại.");
+    } finally {
+      setUpdatingBugId(null);
+    }
+  };
+
+  // Report to admin
+  const handleReportToAdmin = async (bugId: number) => {
+    const bug = bugReports.find(b => b.id === bugId);
+    if (!bug) return;
+
+    const note = prompt(
+      "Ghi chú gửi Admin giải quyết cùng (mô tả lý do cần Admin hỗ trợ):",
+      "Cần admin kiểm tra lại lỗi hệ thống."
+    );
+    if (note === null) return;
+
+    setUpdatingBugId(bugId);
+    setErrorMsg("");
+    try {
+      // Set to InProgress and add note specifying Admin support needed
+      await bugReportsApi.updateStatus(bugId, {
+        status: "InProgress",
+        instructorNote: `[Yêu cầu hỗ trợ từ Admin]: ${note.trim()}`
+      });
+      triggerSuccess("Đã chuyển tiếp thông tin báo cáo lên Admin.");
+      fetchAllBugReports(courses);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Không thể chuyển tiếp báo cáo lỗi.");
+    } finally {
+      setUpdatingBugId(null);
+    }
+  };
+
   // Open Course Modal
   const openCourseModal = (course?: Course) => {
     if (course) {
@@ -167,7 +232,7 @@ function InstructorDashboardContent() {
             Dashboard
           </h1>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            Quản lý các khóa học lập trình trực quan và thiết kế các bài học scrollytelling.
+            Quản lý các khóa học lập trình trực quan và xem báo cáo lỗi bài học từ học viên.
           </p>
         </div>
         
@@ -201,44 +266,13 @@ function InstructorDashboardContent() {
         </div>
       )}
 
-      {/* Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        {/* Revenue Card */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between shadow-sm relative overflow-hidden">
-          <div className="absolute right-0 bottom-0 w-24 h-24 bg-blue-50 rounded-full blur-xl pointer-events-none" />
-          <div className="z-10">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tổng Doanh Thu</span>
-            <span className="text-2xl font-black text-slate-900 mt-1 block">
-              {loadingStats ? "..." : `${stats?.totalRevenue.toLocaleString("vi-VN") ?? 0} VND`}
-            </span>
-          </div>
-          <div className="w-12 h-12 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center text-blue-600 shrink-0">
-            <DollarSign size={20} className="stroke-[2]" />
-          </div>
-        </div>
-
-        {/* Courses Sold Card */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between shadow-sm relative overflow-hidden">
-          <div className="absolute right-0 bottom-0 w-24 h-24 bg-emerald-50 rounded-full blur-xl pointer-events-none" />
-          <div className="z-10">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Lượt Mua Khóa Học & PRO</span>
-            <span className="text-2xl font-black text-slate-900 mt-1 block">
-              {loadingStats ? "..." : stats?.coursesSold ?? 0}
-            </span>
-          </div>
-          <div className="w-12 h-12 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
-            <TrendingUp size={20} className="stroke-[2]" />
-          </div>
-        </div>
-      </div>
-
       {/* Courses List Section */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
             <Layers size={13} className="text-slate-400" /> Các khóa học của bạn ({filteredCourses.length})
           </h2>
-          <button onClick={fetchCourses} className="text-slate-400 hover:text-slate-655 transition-colors">
+          <button onClick={fetchCourses} className="text-slate-400 hover:text-slate-600 transition-colors">
             <RefreshCw size={13} />
           </button>
         </div>
@@ -263,12 +297,21 @@ function InstructorDashboardContent() {
                 levelBadgeClass = "bg-rose-50 text-rose-600 border border-rose-150";
               }
 
+              const openBugs = openBugsCountPerCourse[course.id] || 0;
+
               return (
                 <div
                   key={course.id}
                   onClick={() => router.push(`/instructor/courses/${course.id}/lessons`)}
-                  className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-blue-300 hover:shadow-[0_4px_20px_rgba(37,99,235,0.02)] transition-all duration-200 cursor-pointer flex items-center gap-4 group"
+                  className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-blue-300 hover:shadow-[0_4px_20px_rgba(37,99,235,0.02)] transition-all duration-200 cursor-pointer flex items-center gap-4 group relative"
                 >
+                  {/* Open bugs badge */}
+                  {openBugs > 0 && (
+                    <span className="absolute top-2 right-2 bg-red-500 text-white font-bold text-[8px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                      <Bug size={8} /> {openBugs} lỗi
+                    </span>
+                  )}
+
                   {/* Small icon/thumbnail on the left */}
                   <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-blue-600 shrink-0 border border-slate-100 overflow-hidden">
                     {course.thumbnailUrl ? (
@@ -286,7 +329,7 @@ function InstructorDashboardContent() {
                   </div>
 
                   {/* Info in the middle */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 pr-8">
                     <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate text-sm">
                       {course.title}
                     </h3>
@@ -335,63 +378,146 @@ function InstructorDashboardContent() {
         )}
       </div>
 
-      {/* Transactions Section */}
-      <div className="flex flex-col gap-4 mt-8">
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-          <History size={13} className="text-slate-400" /> Lịch sử giao dịch gần đây
-        </h2>
+      {/* Bug Reports Section */}
+      <div className="flex flex-col gap-4 mt-10">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <Bug size={13} className="text-slate-400 animate-pulse" /> Báo cáo lỗi từ học viên ({bugReports.length})
+          </h2>
+          <button onClick={() => fetchAllBugReports(courses)} className="text-slate-400 hover:text-slate-655 transition-colors">
+            <RefreshCw size={13} />
+          </button>
+        </div>
 
         <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-          {loadingStats ? (
+          {loadingBugs ? (
             <div className="py-12 text-center text-xs text-slate-400 font-semibold uppercase tracking-widest animate-pulse">
-              Đang tải lịch sử giao dịch...
+              Đang tải danh sách báo cáo lỗi...
             </div>
-          ) : !stats || stats.transactions.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2 bg-white">
-              <p className="font-bold text-slate-700">Chưa phát sinh giao dịch nào</p>
+          ) : bugReports.length === 0 ? (
+            <div className="p-8 text-center text-slate-455 text-xs flex flex-col items-center justify-center gap-2 bg-white">
+              <p className="font-bold text-slate-700">Chưa có báo cáo lỗi nào</p>
+              <p className="text-[10px] text-slate-400">Học viên chưa phát hiện lỗi nào trên các bài học của bạn.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold">
-                    <th className="p-4">Mã đơn</th>
                     <th className="p-4">Học viên</th>
-                    <th className="p-4">Khóa học / Dịch vụ</th>
-                    <th className="p-4">Số tiền</th>
-                    <th className="p-4">Thời gian</th>
-                    <th className="p-4 text-center">Trạng thái</th>
+                    <th className="p-4">Khóa học / Bài học</th>
+                    <th className="p-4">Chi tiết lỗi</th>
+                    <th className="p-4">Trạng thái</th>
+                    <th className="p-4">Ghi chú phản hồi</th>
+                    <th className="p-4 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-slate-600">
-                  {stats.transactions.map((tx) => (
-                    <tr key={tx.transactionId} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 font-mono font-bold text-[10px] text-slate-400">{tx.orderCode}</td>
-                      <td className="p-4 font-semibold text-slate-800">{tx.userFullName ?? "Học viên"}</td>
-                      <td className="p-4 font-medium text-slate-700">{tx.courseTitle ?? "Khóa học"}</td>
-                      <td className="p-4 font-bold text-blue-600">{(tx.amount).toLocaleString("vi-VN")}đ</td>
-                      <td className="p-4 text-slate-400">
-                        {new Date(tx.paymentTime).toLocaleString("vi-VN", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        })}
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
-                          tx.status === "SUCCESS"
-                            ? "bg-emerald-50 text-emerald-600 border-emerald-250"
-                            : tx.status === "PENDING"
-                            ? "bg-amber-50 text-amber-600 border-amber-250"
-                            : "bg-slate-50 text-slate-500 border-slate-200"
-                        }`}>
-                          {tx.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {bugReports.map((bug) => {
+                    const isUpdating = updatingBugId === bug.id;
+                    return (
+                      <tr key={bug.id} className="hover:bg-slate-50/50 transition-colors align-top">
+                        <td className="p-4">
+                          <p className="font-semibold text-slate-800">{bug.userFullName}</p>
+                          <p className="text-[10px] text-slate-400">{bug.userEmail}</p>
+                        </td>
+                        <td className="p-4">
+                          <p className="font-semibold text-slate-700 truncate max-w-[160px]">{bug.courseTitle}</p>
+                          <p className="text-[10px] text-slate-400 truncate max-w-[160px]">{bug.lessonTitle || "Toàn khóa học"}</p>
+                        </td>
+                        <td className="p-4 max-w-xs">
+                          <p className="font-bold text-slate-800">{bug.title}</p>
+                          <p className="text-[10px] text-slate-500 mt-1 whitespace-pre-line">{bug.description}</p>
+                          <p className="text-[9px] text-slate-400 mt-1.5">
+                            Ngày báo: {new Date(bug.createdAt).toLocaleDateString("vi-VN")}
+                          </p>
+                          {bug.attachmentUrl && (
+                            <div className="mt-1.5">
+                              <a
+                                href={bug.attachmentUrl.startsWith("http") ? bug.attachmentUrl : `${process.env.NEXT_PUBLIC_API_URL ?? "https://localhost:53483"}${bug.attachmentUrl}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-200 text-blue-600 rounded text-[9px] font-bold hover:bg-blue-50 transition-colors"
+                              >
+                                🖼️ Xem ảnh đính kèm
+                              </a>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border flex items-center gap-1 max-w-fit ${
+                            bug.status === "Open"
+                              ? "bg-red-50 text-red-600 border-red-200"
+                              : bug.status === "InProgress"
+                              ? "bg-amber-50 text-amber-600 border-amber-200"
+                              : bug.status === "Resolved"
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              : "bg-slate-50 text-slate-550 border-slate-200"
+                          }`}>
+                            {bug.status === "Open" && <AlertTriangle size={10} />}
+                            {bug.status === "InProgress" && <Clock size={10} />}
+                            {bug.status === "Resolved" && <CheckCircle2 size={10} />}
+                            {bug.status}
+                          </span>
+                        </td>
+                        <td className="p-4 max-w-xs">
+                          {bug.instructorNote ? (
+                            <div className="bg-slate-50 border border-slate-100 p-2 rounded-lg text-[10px] text-slate-600 whitespace-pre-line">
+                              <p className="font-bold text-slate-400 mb-0.5">Ghi chú của bạn:</p>
+                              {bug.instructorNote}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic text-[10px]">Chưa phản hồi</span>
+                          )}
+                          {bug.adminNote && (
+                            <div className="bg-red-50/50 border border-red-100 p-2 rounded-lg text-[10px] text-red-650 mt-1 whitespace-pre-line">
+                              <p className="font-bold text-red-400 mb-0.5">Phản hồi của Admin:</p>
+                              {bug.adminNote}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex flex-col gap-1 items-end justify-start">
+                            {bug.status !== "Resolved" && bug.status !== "Closed" && (
+                              <>
+                                <button
+                                  onClick={() => handleUpdateBugStatus(bug.id, bug.status, "InProgress")}
+                                  disabled={isUpdating}
+                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-200 rounded text-[10px] font-bold transition-all flex items-center gap-1"
+                                >
+                                  {isUpdating ? "..." : "Đang xử lý"}
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateBugStatus(bug.id, bug.status, "Resolved")}
+                                  disabled={isUpdating}
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 rounded text-[10px] font-bold transition-all flex items-center gap-1"
+                                >
+                                  {isUpdating ? "..." : "Giải quyết"}
+                                </button>
+                                <button
+                                  onClick={() => handleReportToAdmin(bug.id)}
+                                  disabled={isUpdating}
+                                  className="px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded text-[10px] font-bold transition-all flex items-center gap-1"
+                                  title="Gửi báo cáo hỗ trợ lên admin"
+                                >
+                                  {isUpdating ? "..." : "Báo Admin 👑"}
+                                </button>
+                              </>
+                            )}
+                            {(bug.status === "Resolved" || bug.status === "Closed") && (
+                              <button
+                                onClick={() => handleUpdateBugStatus(bug.id, bug.status, bug.status)}
+                                disabled={isUpdating}
+                                className="px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200 rounded text-[10px] transition-all"
+                              >
+                                {isUpdating ? "..." : "Sửa phản hồi"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

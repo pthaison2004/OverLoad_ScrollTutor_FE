@@ -6,9 +6,9 @@ import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2, Menu, MoreVertical, Lock, Zap } from "lucide-react";
 import LessonContent from "@/components/course/LessonContent";
 import LessonSidebar from "@/components/course/LessonSidebar";
-import { coursesApi, enrollmentsApi, lessonsApi, paymentApi } from "@/lib/api";
+import { coursesApi, enrollmentsApi, lessonsApi, paymentApi, bugReportsApi } from "@/lib/api";
 import { getUser, isLoggedIn } from "@/lib/auth";
-import { Course, Lesson, LessonWithProgress } from "@/lib/types";
+import { Course, Lesson, LessonWithProgress, CreateBugReportRequest } from "@/lib/types";
 import { useLessonProgress } from "@/lib/useLessonProgress";
 import { fetchUserActivePlan } from "@/lib/subscription";
 import PricingModal from "@/components/payment/PricingModal";
@@ -36,6 +36,11 @@ export default function CoursePage() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [activePlan, setActivePlan] = useState<"FREE" | "PLUS" | "PRO">("FREE");
+  const [showBugReport, setShowBugReport] = useState(false);
+  const [bugReportForm, setBugReportForm] = useState({ title: "", description: "" });
+  const [bugReportSubmitting, setBugReportSubmitting] = useState(false);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const { courseProgress, progressLoading, loadCourseProgress } = useLessonProgress(id);
 
   useEffect(() => {
@@ -158,6 +163,61 @@ export default function CoursePage() {
     // Sync from server
     coursesApi.getLessons(id).then(setLessons).catch(console.error);
     loadCourseProgress(id);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Kích thước tệp tin không được vượt quá 5MB.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setUploadingImage(true);
+    try {
+      const res = await bugReportsApi.uploadAttachment(formData);
+      setAttachmentUrl(res.attachmentUrl);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Tải lên hình ảnh thất bại.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleBugReportSubmit = async () => {
+    if (bugReportForm.title.trim().length < 5) {
+      alert("Tiêu đề phải có ít nhất 5 ký tự.");
+      return;
+    }
+    if (bugReportForm.description.trim().length < 10) {
+      alert("Mô tả phải có ít nhất 10 ký tự.");
+      return;
+    }
+    setBugReportSubmitting(true);
+    try {
+      const body: CreateBugReportRequest = {
+        courseId: id,
+        lessonId: activeLessonId ?? undefined,
+        title: bugReportForm.title.trim(),
+        description: bugReportForm.description.trim(),
+        attachmentUrl: attachmentUrl || undefined,
+      };
+      await bugReportsApi.create(body);
+      alert("Báo cáo lỗi đã được gửi thành công! Cảm ơn bạn.");
+      setShowBugReport(false);
+      setBugReportForm({ title: "", description: "" });
+      setAttachmentUrl(null);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Gửi báo cáo lỗi thất bại, vui lòng thử lại.");
+    } finally {
+      setBugReportSubmitting(false);
+    }
   };
 
   const handleEnroll = async () => {
@@ -290,6 +350,13 @@ export default function CoursePage() {
             >
               Tiep theo <ChevronRight size={14} />
             </button>
+            <button
+              onClick={() => setShowBugReport(true)}
+              className="text-white/60 hover:text-white transition-colors text-xs flex items-center gap-1"
+              title="Báo cáo lỗi"
+            >
+              🐛 Báo cáo lỗi
+            </button>
             <button className="text-white/60 hover:text-white transition-colors">
               <MoreVertical size={16} />
             </button>
@@ -356,6 +423,90 @@ export default function CoursePage() {
           )}
         </div>
       </div>
+      {showBugReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-white mb-4">🐛 Báo cáo lỗi</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Tiêu đề <span className="text-red-400">*</span></label>
+                <input
+                  type="text"
+                  value={bugReportForm.title}
+                  onChange={(e) => setBugReportForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="Mô tả ngắn gọn lỗi gặp phải..."
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  minLength={5}
+                  required
+                />
+                <p className="text-xs text-slate-400 mt-1">Tối thiểu 5 ký tự</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Mô tả chi tiết <span className="text-red-400">*</span></label>
+                <textarea
+                  value={bugReportForm.description}
+                  onChange={(e) => setBugReportForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Mô tả chi tiết lỗi bạn gặp phải, các bước tái hiện..."
+                  rows={4}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                  minLength={10}
+                  required
+                />
+                <p className="text-xs text-slate-400 mt-1">Tối thiểu 10 ký tự</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Hình ảnh đính kèm (tùy chọn)</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg text-xs font-bold text-white cursor-pointer transition-colors active:scale-95">
+                    <span>Chọn ảnh từ máy 📸</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {uploadingImage && <Loader2 size={14} className="animate-spin text-orange-500" />}
+                  {attachmentUrl && (
+                    <div className="relative w-10 h-10 rounded-lg border border-slate-600 overflow-hidden bg-slate-900 group">
+                      <img src={attachmentUrl} className="w-full h-full object-cover" alt="Preview" />
+                      <button
+                        type="button"
+                        onClick={() => setAttachmentUrl(null)}
+                        className="absolute inset-0 bg-black/75 flex items-center justify-center text-white text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1">Chấp nhận JPG, PNG, WEBP, GIF tối đa 5MB</p>
+              </div>
+              <div className="text-xs text-slate-400 space-y-1">
+                <p>Khóa học: <span className="text-slate-300">{course.title}</span></p>
+                {activeLesson && <p>Bài học: <span className="text-slate-300">{activeLesson.title}</span></p>}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => { setShowBugReport(false); setBugReportForm({ title: "", description: "" }); }}
+                disabled={bugReportSubmitting}
+                className="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleBugReportSubmit}
+                disabled={bugReportSubmitting}
+                className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {bugReportSubmitting && <Loader2 size={14} className="animate-spin" />}
+                Gửi báo cáo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isPricingOpen && (
         <PricingModal 
           onClose={async () => {
