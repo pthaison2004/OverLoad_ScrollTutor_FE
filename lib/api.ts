@@ -125,7 +125,10 @@ function translateGenericError(msg: string): string {
   const translations: Record<string, string> = {
     "email already exists": "Email này đã được sử dụng.",
     "invalid credentials": "Email hoặc mật khẩu không chính xác.",
+    "invalid credentials.": "Email hoặc mật khẩu không chính xác.",
     "invalid username or password": "Email hoặc mật khẩu không chính xác.",
+    "email or password is incorrect.": "Email hoặc mật khẩu không chính xác.",
+    "email or password is incorrect": "Email hoặc mật khẩu không chính xác.",
     "user not found": "Không tìm thấy người dùng.",
     "course not found": "Không tìm thấy khóa học.",
     "lesson not found": "Không tìm thấy bài học.",
@@ -167,8 +170,8 @@ async function request<T>(
     throw new Error(`Cannot reach API ${url}: ${translateGenericError(message)}`);
   }
 
-  // ✅ Nếu 401 và còn lần retry → thử refresh token rồi gọi lại
-  if (res.status === 401 && retry) {
+  // ✅ Nếu 401 và còn lần retry và không phải là route login/auth -> thử refresh token rồi gọi lại
+  if (res.status === 401 && retry && !path.startsWith("/auth/")) {
     const newToken = await tryRefreshToken();
     if (newToken) {
       // Gọi lại request với token mới, retry = false để tránh vòng lặp

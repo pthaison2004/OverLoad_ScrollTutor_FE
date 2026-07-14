@@ -17,6 +17,8 @@ export default function ProfilePage() {
   const [mounted, setMounted] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [proExpiration, setProExpiration] = useState<Date | null>(null);
+  const [activePlan, setActivePlan] = useState<"FREE" | "PLUS" | "PRO">("FREE");
+
 
   // My Courses and Progress
   const [myCourses, setMyCourses] = useState<UserCourse[]>([]);
@@ -59,36 +61,46 @@ export default function ProfilePage() {
       .catch(err => console.error("Lỗi lấy danh sách khóa học:", err))
       .finally(() => setLoadingCourses(false));
 
-    // Kiểm tra gói PRO qua danh sách hóa đơn chi tiết
+    // Kiểm tra gói dịch vụ qua danh sách hóa đơn chi tiết
     enrollmentsApi.getByUserDetails(u.id)
       .then(res => {
-        const hasPro = res.some(e => e.courseSlug === "pro-upgrade-month" || e.courseSlug === "pro-upgrade-year");
-        setIsPro(hasPro);
-
-        // Tính toán hạn PRO
-        const proEnrollments = res
-          .filter(e => e.courseSlug === "pro-upgrade-month" || e.courseSlug === "pro-upgrade-year")
+        const subscriptionEnrollments = res
+          .filter(e => e.courseSlug === "pro-upgrade-month" || e.courseSlug === "pro-upgrade-year" || e.courseSlug === "plus-upgrade-month")
           .map(e => ({
             enrolledAt: new Date(e.enrolledAt),
-            durationDays: e.courseSlug === "pro-upgrade-month" ? 30 : 365
+            durationDays: e.courseSlug.includes("year") ? 365 : 30,
+            isPro: e.courseSlug.includes("pro-upgrade"),
+            isPlus: e.courseSlug.includes("plus-upgrade"),
           }))
           .sort((a, b) => a.enrolledAt.getTime() - b.enrolledAt.getTime());
 
-        if (proEnrollments.length > 0) {
-          let expiration: Date | null = null;
-          for (const item of proEnrollments) {
-            if (expiration === null || expiration < item.enrolledAt) {
-              expiration = new Date(item.enrolledAt.getTime() + item.durationDays * 24 * 60 * 60 * 1000);
-            } else {
-              expiration = new Date(expiration.getTime() + item.durationDays * 24 * 60 * 60 * 1000);
+        let foundPlan: "FREE" | "PLUS" | "PRO" = "FREE";
+        let foundExpiration: Date | null = null;
+
+        for (const planType of ["PRO", "PLUS"] as const) {
+          const planEnrollments = subscriptionEnrollments.filter(e => planType === "PRO" ? e.isPro : e.isPlus);
+          if (planEnrollments.length > 0) {
+            let expiration: Date | null = null;
+            for (const item of planEnrollments) {
+              if (expiration === null || expiration < item.enrolledAt) {
+                expiration = new Date(item.enrolledAt.getTime() + item.durationDays * 24 * 60 * 60 * 1000);
+              } else {
+                expiration = new Date(expiration.getTime() + item.durationDays * 24 * 60 * 60 * 1000);
+              }
+            }
+            if (expiration && expiration > new Date()) {
+              foundPlan = planType;
+              foundExpiration = expiration;
+              break;
             }
           }
-          if (expiration && expiration > new Date()) {
-            setProExpiration(expiration);
-          }
         }
+
+        setActivePlan(foundPlan);
+        setIsPro(foundPlan === "PRO");
+        setProExpiration(foundExpiration);
       })
-      .catch(err => console.error("Lỗi lấy thông tin PRO:", err));
+      .catch(err => console.error("Lỗi lấy thông tin gói học:", err));
   }, [router]);
 
   const handleLogout = () => {
@@ -464,11 +476,13 @@ export default function ProfilePage() {
                   {/* Status Badge */}
                   {user.role === "Student" && (
                     <span className={`text-[10px] border px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
-                      isPro 
+                      activePlan === "PRO" 
                         ? "bg-purple-50 text-purple-600 border-purple-150" 
-                        : "bg-indigo-50 text-indigo-600 border border-indigo-200"
+                        : activePlan === "PLUS"
+                          ? "bg-blue-50 text-blue-600 border-blue-150"
+                          : "bg-indigo-50 text-indigo-600 border border-indigo-200"
                     }`}>
-                      {isPro ? "PRO Account" : "Học viên Free"}
+                      {activePlan === "PRO" ? "PRO Account" : activePlan === "PLUS" ? "PLUS Account" : "Học viên Free"}
                     </span>
                   )}
                 </div>
@@ -484,11 +498,21 @@ export default function ProfilePage() {
                   </span>
                 </div>
 
-                {/* PRO expiration */}
-                {user.role === "Student" && isPro && proExpiration && (
-                  <div className="mt-3 bg-purple-50/70 border border-purple-100 rounded-xl p-3">
-                    <span className="text-[10px] text-purple-500 font-bold block mb-1">Thời gian gói PRO</span>
-                    <span className="text-xs text-purple-700 font-extrabold flex items-center gap-1">
+                {/* Plan expiration */}
+                {user.role === "Student" && activePlan !== "FREE" && proExpiration && (
+                  <div className={`mt-3 border rounded-xl p-3 ${
+                    activePlan === "PRO" 
+                      ? "bg-purple-50/70 border-purple-100" 
+                      : "bg-blue-50/70 border-blue-100"
+                  }`}>
+                    <span className={`text-[10px] font-bold block mb-1 ${
+                      activePlan === "PRO" ? "text-purple-500" : "text-blue-500"
+                    }`}>
+                      Thời gian gói {activePlan}
+                    </span>
+                    <span className={`text-xs text-purple-700 font-extrabold flex items-center gap-1 ${
+                      activePlan === "PRO" ? "text-purple-700" : "text-blue-750"
+                    }`}>
                       <Clock size={12} className="stroke-[2.5]" />
                       {getRemainingTimeStr(proExpiration)}
                     </span>

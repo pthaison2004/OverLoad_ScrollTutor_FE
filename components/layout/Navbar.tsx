@@ -6,17 +6,26 @@ import { getUser, saveUser } from "@/lib/auth";
 import { User } from "@/lib/types";
 import PricingModal from "@/components/payment/PricingModal";
 import { usersApi } from "@/lib/api";
+import { fetchUserActivePlan } from "@/lib/subscription";
+
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [showRejectionAlert, setShowRejectionAlert] = useState(false);
+  const [activePlan, setActivePlan] = useState<"FREE" | "PLUS" | "PRO">("FREE");
+
 
   useEffect(() => {
     const u = getUser();
     setUser(u);
-    if (u && u.studentVerificationStatus === "REJECTED" && !u.hasSeenStudentRejection) {
-      setShowRejectionAlert(true);
+    if (u) {
+      if (u.studentVerificationStatus === "REJECTED" && !u.hasSeenStudentRejection) {
+        setShowRejectionAlert(true);
+      }
+      fetchUserActivePlan(u.id)
+        .then(plan => setActivePlan(plan))
+        .catch(err => console.error("Lỗi lấy gói hoạt động:", err));
     }
   }, []);
 
@@ -68,8 +77,16 @@ export default function Navbar() {
                   {user.fullName}
                 </div>
                 <div className="flex gap-1 justify-end mt-0.5">
-                  <span className="text-xs bg-slate-100 text-slate-500 px-1.5 rounded font-500">Free</span>
-                  <span className="text-xs bg-blue-50 text-primary px-1.5 rounded font-500">Học viên</span>
+                  {activePlan === "PRO" ? (
+                    <span className="text-xs bg-purple-100 text-purple-700 px-1.5 rounded font-500">PRO</span>
+                  ) : activePlan === "PLUS" ? (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-1.5 rounded font-500">Plus</span>
+                  ) : (
+                    <span className="text-xs bg-slate-100 text-slate-500 px-1.5 rounded font-500">Free</span>
+                  )}
+                  <span className="text-xs bg-blue-50 text-primary px-1.5 rounded font-500">
+                    {user.role === "Student" ? "Học viên" : user.role === "Instructor" ? "Giảng viên" : user.role === "Admin" ? "Admin" : user.role}
+                  </span>
                 </div>
               </div>
               <Link href="/profile">
