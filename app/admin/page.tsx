@@ -50,8 +50,16 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [bugStatusFilter, setBugStatusFilter] = useState<string>("All");
   const [bugCategoryFilter, setBugCategoryFilter] = useState<string>("All");
-  const [txCategoryFilter, setTxCategoryFilter] = useState<string>("All");
-  const [overviewCategoryFilter, setOverviewCategoryFilter] = useState<string>("All");
+  const [txPage, setTxPage] = useState(1);
+  const [revenueTimePreset, setRevenueTimePreset] = useState<"7days" | "30days" | "thisMonth" | "custom">("30days");
+  const [revenueStartDate, setRevenueStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+  });
+  const [revenueEndDate, setRevenueEndDate] = useState<string>(() => {
+    return new Date().toISOString().split("T")[0];
+  });
   const [enrollmentCategoryFilter, setEnrollmentCategoryFilter] = useState<"All" | "Frontend" | "Backend" | "Database">("All");
   const [enrollmentMonth, setEnrollmentMonth] = useState<string>(() => {
     const now = new Date();
@@ -183,15 +191,20 @@ export default function AdminDashboard() {
     );
   }, [users, userSearch]);
 
-  // 2. Filtered Transactions
-  const filteredTransactions = useMemo(() => {
-    const txs = stats?.transactions || [];
-    if (txCategoryFilter === "All") return txs;
-    return txs.filter(tx => {
-      const cat = courseCategoryMap[tx.courseId] || "System";
-      return cat.toLowerCase() === txCategoryFilter.toLowerCase();
-    });
-  }, [stats?.transactions, txCategoryFilter, courseCategoryMap]);
+  // 2. All Transactions (sorted newest first)
+  const allTransactions = useMemo(() => {
+    return [...(stats?.transactions || [])].sort((a, b) =>
+      new Date(b.paymentTime).getTime() - new Date(a.paymentTime).getTime()
+    );
+  }, [stats?.transactions]);
+
+  // Pagination for transactions
+  const TX_PAGE_SIZE = 10;
+  const txTotalPages = Math.max(1, Math.ceil(allTransactions.length / TX_PAGE_SIZE));
+  const paginatedTransactions = useMemo(() => {
+    const start = (txPage - 1) * TX_PAGE_SIZE;
+    return allTransactions.slice(start, start + TX_PAGE_SIZE);
+  }, [allTransactions, txPage]);
 
   // 3. Filtered Bugs
   const filteredBugs = useMemo(() => {
@@ -256,36 +269,62 @@ export default function AdminDashboard() {
     };
   }, [enrollments, courseCategoryMap]);
 
-  // RECHARTS CHART DATA (Revenue aggregated by date)
+  // RECHARTS CHART DATA (Revenue aggregated by date over a selected timeline)
   const chartData = useMemo(() => {
     const successTxs = (stats?.transactions || []).filter(tx => tx.status === "SUCCESS");
     
-    // Filter success transactions by category if category filter is active
-    const filteredTxs = overviewCategoryFilter === "All"
-      ? successTxs
-      : successTxs.filter(tx => {
-          const cat = courseCategoryMap[tx.courseId] || "System";
-          return cat.toLowerCase() === overviewCategoryFilter.toLowerCase();
-        });
+    // Determine start and end date based on preset
+    let startDateObj = new Date();
+    let endDateObj = new Date();
+    const today = new Date();
 
+    if (revenueTimePreset === "7days") {
+      startDateObj = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+      endDateObj = today;
+    } else if (revenueTimePreset === "30days") {
+      startDateObj = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
+      endDateObj = today;
+    } else if (revenueTimePreset === "thisMonth") {
+      startDateObj = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDateObj = new Date(today.getFullYear(), today.getMonth() + 1, 0); // last day of month
+    } else {
+      startDateObj = revenueStartDate ? new Date(revenueStartDate) : new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
+      endDateObj = revenueEndDate ? new Date(revenueEndDate) : today;
+    }
+
+    // Set times to cover full start/end days
+    startDateObj.setHours(0, 0, 0, 0);
+    endDateObj.setHours(23, 59, 59, 999);
+
+    // Group transactions by date string DD/MM
     const dailyMap: Record<string, number> = {};
-    filteredTxs.forEach(tx => {
-      const dateStr = new Date(tx.paymentTime).toLocaleDateString("vi-VN", { month: "2-digit", day: "2-digit" });
-      dailyMap[dateStr] = (dailyMap[dateStr] || 0) + tx.amount;
+    successTxs.forEach(tx => {
+      const txDate = new Date(tx.paymentTime);
+      if (txDate >= startDateObj && txDate <= endDateObj) {
+        // Filter by category if needed
+        const dateStr = `${String(txDate.getDate()).padStart(2, "0")}/${String(txDate.getMonth() + 1).padStart(2, "0")}`;
+        dailyMap[dateStr] = (dailyMap[dateStr] || 0) + tx.amount;
+      }
     });
 
-    const sortedKeys = Object.keys(dailyMap).sort((a, b) => {
-      const [aDay, aMonth] = a.split("/").map(Number);
-      const [bDay, bMonth] = b.split("/").map(Number);
-      return aMonth === bMonth ? aDay - bDay : aMonth - bMonth;
-    });
+    // Generate continuous sequence of dates between startDateObj and endDateObj
+    const result = [];
+    const tempDate = new Date(startDateObj);
+    const maxDays = 366; // Safety limit
+    let dayCount = 0;
 
-    // Take last 10 days for graph
-    return sortedKeys.slice(-10).map(key => ({
-      date: key,
-      "Doanh thu": dailyMap[key]
-    }));
-  }, [stats?.transactions, overviewCategoryFilter, courseCategoryMap]);
+    while (tempDate <= endDateObj && dayCount < maxDays) {
+      const dateStr = `${String(tempDate.getDate()).padStart(2, "0")}/${String(tempDate.getMonth() + 1).padStart(2, "0")}`;
+      result.push({
+        date: dateStr,
+        "Doanh thu": dailyMap[dateStr] || 0
+      });
+      tempDate.setDate(tempDate.getDate() + 1);
+      dayCount++;
+    }
+
+    return result;
+  }, [stats?.transactions, revenueTimePreset, revenueStartDate, revenueEndDate, courseCategoryMap]);
 
   // Group enrollments by category or by specific course titles depending on drilldown + month filter
   const courseEnrollmentChartData = useMemo(() => {
@@ -478,21 +517,46 @@ export default function AdminDashboard() {
                             <p className="text-[10px] text-slate-400 mt-0.5">Doanh thu giao dịch thành công theo ngày.</p>
                           </div>
                           
-                          {/* Filter by Category */}
-                          <div className="flex items-center gap-1 overflow-x-auto py-1">
-                            {["All", "Frontend", "Backend", "Database", "System"].map(cat => (
-                              <button
-                                key={cat}
-                                onClick={() => setOverviewCategoryFilter(cat)}
-                                className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-all ${
-                                  overviewCategoryFilter === cat
-                                    ? "bg-slate-900 text-white border-slate-900"
-                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                                }`}
-                              >
-                                {cat === "All" ? "Tất cả" : cat}
-                              </button>
-                            ))}
+                          {/* Filter by Date Range */}
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <div className="flex items-center gap-1 overflow-x-auto py-1">
+                              {([
+                                { key: "7days", label: "7 ngày" },
+                                { key: "30days", label: "30 ngày" },
+                                { key: "thisMonth", label: "Tháng này" },
+                                { key: "custom", label: "Tùy chọn" }
+                              ] as const).map(preset => (
+                                <button
+                                  key={preset.key}
+                                  onClick={() => setRevenueTimePreset(preset.key)}
+                                  className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-all ${
+                                    revenueTimePreset === preset.key
+                                      ? "bg-slate-900 text-white border-slate-900"
+                                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
+
+                            {revenueTimePreset === "custom" && (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="date"
+                                  value={revenueStartDate}
+                                  onChange={(e) => setRevenueStartDate(e.target.value)}
+                                  className="px-1.5 py-0.5 rounded-lg text-[9px] font-bold border border-slate-200 bg-white text-slate-600 outline-none focus:border-blue-400 transition-all"
+                                />
+                                <span className="text-[10px] text-slate-400 font-bold">đến</span>
+                                <input
+                                  type="date"
+                                  value={revenueEndDate}
+                                  onChange={(e) => setRevenueEndDate(e.target.value)}
+                                  className="px-1.5 py-0.5 rounded-lg text-[9px] font-bold border border-slate-200 bg-white text-slate-600 outline-none focus:border-blue-400 transition-all"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -843,27 +907,14 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* Table Toolbar / Lọc chuyên mục */}
+                  {/* Table Header */}
                   <div className="flex items-center gap-4 justify-between flex-wrap">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                       Lịch sử giao dịch toàn hệ thống
                     </h3>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider mr-1">Chuyên mục:</span>
-                      {["All", "Frontend", "Backend", "Database", "System"].map(cat => (
-                        <button
-                          key={cat}
-                          onClick={() => setTxCategoryFilter(cat)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                            txCategoryFilter === cat
-                              ? "bg-slate-900 text-white border-slate-900"
-                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                          }`}
-                        >
-                          {cat === "All" ? "Tất cả" : cat}
-                        </button>
-                      ))}
-                    </div>
+                    <span className="text-[10px] text-slate-400 font-bold">
+                      Tổng: {allTransactions.length} giao dịch
+                    </span>
                   </div>
 
                   {/* Transactions Table */}
@@ -882,12 +933,12 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 text-slate-600">
-                          {filteredTransactions.length === 0 ? (
+                          {paginatedTransactions.length === 0 ? (
                             <tr>
                               <td colSpan={7} className="p-8 text-center text-slate-400 italic">Chưa phát sinh giao dịch nào.</td>
                             </tr>
                           ) : (
-                            filteredTransactions.map((tx) => {
+                            paginatedTransactions.map((tx) => {
                               const cat = courseCategoryMap[tx.courseId] || "System";
                               return (
                                 <tr key={tx.transactionId} className="hover:bg-slate-50/50 transition-colors">
@@ -922,6 +973,55 @@ export default function AdminDashboard() {
                       </table>
                     </div>
                   </div>
+
+                  {/* Pagination */}
+                  {allTransactions.length > 0 && (
+                    <div className="flex items-center justify-between bg-white border border-slate-150 rounded-2xl px-5 py-3 shadow-sm">
+                      <span className="text-[11px] text-slate-400 font-semibold">
+                        Trang {txPage} / {txTotalPages}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setTxPage(p => Math.max(1, p - 1))}
+                          disabled={txPage <= 1}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        >
+                          ← Trước
+                        </button>
+                        {Array.from({ length: txTotalPages }, (_, i) => i + 1)
+                          .filter(p => p === 1 || p === txTotalPages || Math.abs(p - txPage) <= 1)
+                          .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                            if (idx > 0 && p - (arr[idx - 1]) > 1) acc.push("...");
+                            acc.push(p);
+                            return acc;
+                          }, [])
+                          .map((p, i) =>
+                            p === "..." ? (
+                              <span key={`dot-${i}`} className="px-1 text-slate-300 text-xs select-none">…</span>
+                            ) : (
+                              <button
+                                key={p}
+                                onClick={() => setTxPage(p)}
+                                className={`w-7 h-7 rounded-lg text-[10px] font-bold border transition-all ${
+                                  txPage === p
+                                    ? "bg-slate-900 text-white border-slate-900"
+                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            )
+                          )}
+                        <button
+                          onClick={() => setTxPage(p => Math.min(txTotalPages, p + 1))}
+                          disabled={txPage >= txTotalPages}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        >
+                          Sau →
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
