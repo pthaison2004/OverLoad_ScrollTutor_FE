@@ -16,7 +16,7 @@ interface UserItem {
   createdAt: string;
 }
 
-const ROLES = ["Student", "Instructor", "Manager", "Admin"];
+const ROLES = ["Student", "Instructor", "Manager"];
 
 export default function AdminUsers() {
   const roleChecked = useRequireRole("Admin");
