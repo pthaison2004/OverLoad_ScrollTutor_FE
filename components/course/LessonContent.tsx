@@ -297,9 +297,115 @@ function CheckpointOverlay({ checkpoints, completedCheckpoints, onSolveAll }: Ch
 
 // Detect language from lesson template (simple heuristic)
 function detectLanguage(code: string): string {
-  if (code.includes("<html") || code.includes("<div") || code.includes("<p>")) return "html";
-  if (code.includes("{") && code.includes(":") && !code.includes("function")) return "css";
+  const trimmed = code.trim();
+
+  // 1. Check HTML FIRST: code that starts with < and is primarily HTML tags
+  const looksLikeHtml = trimmed.startsWith("<") || trimmed.includes("<!DOCTYPE") || trimmed.includes("<html") || trimmed.includes("<body");
+  if (looksLikeHtml) {
+    // Only override to JS if it clearly contains React hooks or module syntax
+    const hasReactOrModule = 
+      trimmed.includes("useState") || 
+      trimmed.includes("useEffect") || 
+      trimmed.includes("import ") ||
+      trimmed.includes("export default");
+    if (!hasReactOrModule) {
+      return "html";
+    }
+  }
+
+  // 2. Check JS: code with clear JavaScript syntax
+  if (
+    trimmed.includes("import ") || 
+    trimmed.includes("export ") || 
+    trimmed.includes("useState") || 
+    trimmed.includes("useEffect") || 
+    trimmed.includes("useRef") ||
+    trimmed.includes("useMemo") ||
+    trimmed.includes("useCallback") ||
+    trimmed.includes("console.log") ||
+    /^(const|let|var|function)\s/m.test(trimmed)
+  ) {
+    return "javascript";
+  }
+
+  // 3. Check CSS
+  if (trimmed.includes("{") && (trimmed.includes(":") || trimmed.includes(";")) && !trimmed.includes("function")) {
+    return "css";
+  }
+
+  // 4. Default: if it has HTML-like tags, treat as HTML
+  if (/<[a-zA-Z][a-zA-Z0-9]*[\s>]/.test(trimmed)) {
+    return "html";
+  }
+
   return "javascript";
+}
+
+function formatChunkToHtml(chunk: string): string {
+  if (!chunk) return "";
+
+  let text = chunk.trim();
+  const codeBlocks: string[] = [];
+
+  // 1. Extract markdown code blocks ```lang ... ``` into placeholders
+  text = text.replace(/```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)```/g, (_match, code) => {
+    const escaped = code
+      .trim()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+    const placeholder = `___CODE_BLOCK_${codeBlocks.length}___`;
+    codeBlocks.push(`<pre><code>${escaped}</code></pre>`);
+    return `\n\n${placeholder}\n\n`;
+  });
+
+  // 2. Extract existing <pre>...</pre> blocks into placeholders
+  text = text.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, (_match, codeContent) => {
+    const placeholder = `___CODE_BLOCK_${codeBlocks.length}___`;
+    let cleaned = codeContent;
+    if (!cleaned.includes("<code>")) {
+      cleaned = `<code>${cleaned}</code>`;
+    }
+    codeBlocks.push(`<pre>${cleaned}</pre>`);
+    return `\n\n${placeholder}\n\n`;
+  });
+
+  // 3. Convert Markdown Headings (#, ##, ###)
+  text = text.replace(/^###[ \t]+(.*$)/gim, "<h3>$1</h3>");
+  text = text.replace(/^##[ \t]+(.*$)/gim, "<h2>$1</h2>");
+  text = text.replace(/^#[ \t]+(.*$)/gim, "<h1>$1</h1>");
+
+  // 4. Convert Markdown Inline Code & Bold
+  text = text.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+  // 5. Convert Markdown Lists (- item or * item)
+  text = text.replace(/^\s*[-*]\s+(.*$)/gim, "<li>$1</li>");
+
+  // 6. Wrap text blocks in <p> if not already an HTML tag or placeholder
+  const blocks = text.split(/\n\s*\n/);
+  const formatted = blocks.map((block) => {
+    const trimmed = block.trim();
+    if (!trimmed) return "";
+    if (/^___CODE_BLOCK_\d+___$/.test(trimmed)) {
+      return trimmed;
+    }
+    if (/^<(h[1-6]|pre|ul|ol|li|div|p)\b/i.test(trimmed)) {
+      return trimmed;
+    }
+    return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
+  });
+
+  let result = formatted.filter(Boolean).join("\n");
+
+  // Restore placeholders with original code blocks
+  codeBlocks.forEach((codeHtml, idx) => {
+    result = result.replace(`___CODE_BLOCK_${idx}___`, codeHtml);
+  });
+
+  return result;
 }
 
 export default function LessonContent({
@@ -317,14 +423,18 @@ export default function LessonContent({
   const [editorHeight, setEditorHeight] = useState(50); // percentage
   const [activeStepIndex, setActiveStepIndex] = useState(0);
 
-  // Parse all <pre> blocks from content as steps
+  // Parse all <pre> or markdown code blocks from content as steps
   function getAllPreCodes(html: string): string[] {
     const results: string[] = [];
-    const regex = /<pre[^>]*>([\s\S]*?)<\/pre>/gi;
+    const hasPre = /<pre[^>]*>[\s\S]*?<\/pre>/i.test(html);
+    const regex = hasPre
+      ? /<pre[^>]*>([\s\S]*?)<\/pre>/gi
+      : /```(?:\w+)?\n?([\s\S]*?)```/gi;
     let match;
     while ((match = regex.exec(html)) !== null) {
+      const codeStr = match[1] ?? "";
       results.push(
-        match[1]
+        codeStr
           .replace(/&lt;/g, '<')
           .replace(/&gt;/g, '>')
           .replace(/&amp;/g, '&')
@@ -467,7 +577,7 @@ export default function LessonContent({
     return checkpointsList;
   }, [lesson.content]);
 
-  // Split HTML into step chunks
+  // Split HTML or Markdown into step chunks
   const stepChunks = useMemo(() => {
     let cleanHtml = lesson.content ? lesson.content.replace(/<checkpoint[^>]*>[\s\S]*?<\/checkpoint>/gi, "") : "";
     cleanHtml = cleanHtml.trim();
@@ -483,7 +593,11 @@ export default function LessonContent({
     
     if (!cleanHtml) return [];
     
-    const regex = /([\s\S]*?<pre[^>]*>[\s\S]*?<\/pre>)/gi;
+    const hasPre = /<pre[^>]*>[\s\S]*?<\/pre>/i.test(cleanHtml);
+    const regex = hasPre
+      ? /([\s\S]*?<pre[^>]*>[\s\S]*?<\/pre>)/gi
+      : /([\s\S]*?```[\s\S]*?```)/gi;
+
     const matches = [...cleanHtml.matchAll(regex)];
     
     if (matches.length === 0) {
@@ -935,7 +1049,7 @@ export default function LessonContent({
                             .step-content pre code { background: none; color: inherit; padding: 0; border-radius: 0; font-size: 0.8125rem; line-height: 1.7; }
                           `}</style>
                           <div className="step-content">
-                            {parse(chunk, {
+                            {parse(formatChunkToHtml(chunk), {
                               replace(node) {
                                 if (node instanceof Element && node.name === "pre") {
                                   return (

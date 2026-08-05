@@ -585,19 +585,6 @@ function InstructorDashboardContent() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-500">Giá khóa học (VND)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={1000}
-                  placeholder="Ví dụ: 99000 (Để 0 nếu miễn phí)"
-                  className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
-                  value={courseFormData.price}
-                  onChange={(e) => setCourseFormData({...courseFormData, price: Number(e.target.value)})}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-500">Ảnh Thumbnail (URL)</label>
                 <input
                   type="text"

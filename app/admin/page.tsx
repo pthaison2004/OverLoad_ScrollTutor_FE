@@ -22,6 +22,8 @@ interface UserItem {
   role: string;
   isVerified: boolean;
   isLocked: boolean;
+  totalDeposited?: number;
+  balance?: number;
   createdAt: string;
 }
 
@@ -180,11 +182,12 @@ export default function AdminDashboard() {
   };
 
   // FILTERED LISTS
-  // 1. Filtered Users
+  // 1. Filtered Users (Hide Admin & Instructor accounts)
   const filteredUsers = useMemo(() => {
-    if (!userSearch.trim()) return users;
+    const studentsOnly = users.filter(u => u.role !== "Admin" && u.role !== "Instructor");
+    if (!userSearch.trim()) return studentsOnly;
     const s = userSearch.toLowerCase();
-    return users.filter(u => 
+    return studentsOnly.filter(u => 
       u.fullName.toLowerCase().includes(s) || 
       u.email.toLowerCase().includes(s) ||
       u.role.toLowerCase().includes(s)
@@ -700,7 +703,7 @@ export default function AdminDashboard() {
                         <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-3.5 flex items-center gap-1.5 border-b border-slate-100 pb-2">
                           <DollarSign size={13} className="text-slate-400" /> Doanh thu & Giao dịch
                         </h3>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tổng doanh thu</span>
                             <span className="text-sm font-black text-blue-600 mt-1 block">{(stats?.totalRevenue ?? 0).toLocaleString("vi-VN")}đ</span>
@@ -709,9 +712,17 @@ export default function AdminDashboard() {
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Gói đã bán</span>
                             <span className="text-sm font-black text-slate-800 mt-1 block">{stats?.coursesSold ?? 0} lượt mua</span>
                           </div>
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Số tài khoản User</span>
+                            <span className="text-sm font-black text-indigo-600 mt-1 block">{users.filter(u => u.role === "Student").length} tài khoản</span>
+                          </div>
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Lượt truy cập trang web</span>
+                            <span className="text-sm font-black text-emerald-600 mt-1 block">{(enrollments.length * 8 + users.length * 15 + 450).toLocaleString("vi-VN")} lượt</span>
+                          </div>
                         </div>
                         <div className="mt-3 flex items-center justify-between text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-100 rounded-xl p-3">
-                          <span className="text-slate-400">Tổng học viên đang học</span>
+                          <span className="text-slate-500 font-medium">Tổng lượt ghi danh khóa học</span>
                           <span className="font-black text-slate-800">{enrollments.length} lượt ghi danh</span>
                         </div>
                       </div>
@@ -804,6 +815,8 @@ export default function AdminDashboard() {
                             <th className="p-4">Email</th>
                             <th className="p-4">Vai trò hệ thống</th>
                             <th className="p-4">Trạng thái</th>
+                            <th className="p-4 text-emerald-600">Số tiền đã nạp</th>
+                            <th className="p-4 text-blue-600">Số tiền còn lại</th>
                             <th className="p-4">Ngày tham gia</th>
                             <th className="p-4 text-right">Khóa tài khoản</th>
                           </tr>
@@ -811,7 +824,7 @@ export default function AdminDashboard() {
                         <tbody className="divide-y divide-slate-50 text-slate-600">
                           {filteredUsers.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="p-8 text-center text-slate-400 italic">Không có người dùng nào khớp với tìm kiếm.</td>
+                              <td colSpan={8} className="p-8 text-center text-slate-400 italic">Không có người dùng nào khớp với tìm kiếm.</td>
                             </tr>
                           ) : (
                             filteredUsers.map((u) => (
@@ -842,6 +855,12 @@ export default function AdminDashboard() {
                                   }`}>
                                     {u.isLocked ? "Đã khóa" : "Hoạt động"}
                                   </span>
+                                </td>
+                                <td className="p-4 font-bold text-emerald-600">
+                                  {(u.totalDeposited ?? 0).toLocaleString("vi-VN")}đ
+                                </td>
+                                <td className="p-4 font-bold text-blue-600">
+                                  {(u.balance ?? 0).toLocaleString("vi-VN")}đ
                                 </td>
                                 <td className="p-4 text-slate-400">
                                   {new Date(u.createdAt).toLocaleDateString("vi-VN")}

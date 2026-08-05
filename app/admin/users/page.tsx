@@ -13,6 +13,8 @@ interface UserItem {
   role: string;
   isVerified: boolean;
   isLocked: boolean;
+  totalDeposited?: number;
+  balance?: number;
   createdAt: string;
 }
 
@@ -28,8 +30,12 @@ export default function AdminUsers() {
   const fetchUsers = useCallback(() => {
     setLoading(true);
     setError(null);
-    apiFetch<UserItem[]>(`/api/admin/users?search=${search}&pageSize=50`)
-      .then((data) => setUsers(Array.isArray(data) ? data : []))
+    apiFetch<UserItem[] | { items?: UserItem[] }>(`/api/users?search=${search}&pageSize=100`)
+      .then((data) => {
+        if (Array.isArray(data)) setUsers(data);
+        else if (data && Array.isArray((data as any).items)) setUsers((data as any).items);
+        else setUsers([]);
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [search]);
@@ -68,7 +74,7 @@ export default function AdminUsers() {
             />
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
             {loading ? (
               <div className="flex justify-center py-16">
                 <Loader2 size={28} className="animate-spin text-blue-500" />
@@ -83,19 +89,19 @@ export default function AdminUsers() {
                   Thử lại
                 </button>
               </div>
-            ) : users.length === 0 ? (
+            ) : users.filter(u => u.role !== "Admin" && u.role !== "Instructor").length === 0 ? (
               <div className="flex justify-center py-16 text-slate-400 text-sm">Không có người dùng nào</div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    {["Người dùng", "Email", "Role", "Trạng thái", "Ngày tạo", "Hành động"].map((h) => (
+                    {["Người dùng", "Email", "Role", "Trạng thái", "Số tiền đã nạp", "Số tiền còn lại", "Ngày tạo", "Hành động"].map((h) => (
                       <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {users.map((u) => (
+                  {users.filter(u => u.role !== "Admin" && u.role !== "Instructor").map((u) => (
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
@@ -119,6 +125,12 @@ export default function AdminUsers() {
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${u.isLocked ? "bg-red-50 text-red-500" : "bg-green-50 text-green-600"}`}>
                           {u.isLocked ? "Đã khóa" : "Hoạt động"}
                         </span>
+                      </td>
+                      <td className="px-5 py-4 font-bold text-emerald-600">
+                        {(u.totalDeposited ?? 0).toLocaleString("vi-VN")}đ
+                      </td>
+                      <td className="px-5 py-4 font-bold text-blue-600">
+                        {(u.balance ?? 0).toLocaleString("vi-VN")}đ
                       </td>
                       <td className="px-5 py-4 text-slate-400 text-xs">
                         {new Date(u.createdAt).toLocaleDateString("vi-VN")}
